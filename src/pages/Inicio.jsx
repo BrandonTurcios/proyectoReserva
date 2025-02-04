@@ -33,7 +33,7 @@ export default function Inicio({ setCorreo }) {
 
   return (
     <div
-      className="flex flex-col items-center justify-center min-h-screen bg-cover bg-center px-4"
+      className="flex flex-col items-center justify-center min-h-screen bg-cover bg-center bg-[#07065d] px-4"
       style={{ backgroundImage: `url(${fondoImg})` }}
     >
       <h1 className="text-6xl font-extrabold text-white mb-8 text-center shadow-lg leading-tight">
