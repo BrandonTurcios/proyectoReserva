@@ -1,5 +1,6 @@
 import { Link, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useEffect } from "react";
+import logo from "../pages/UT2.png";
 
 export default function Layout({ correo, setCorreo }) {
   const navigate = useNavigate();
@@ -29,7 +30,7 @@ export default function Layout({ correo, setCorreo }) {
           {/* Logo que redirige a Home */}
           <Link to="/" className="flex items-center">
             <img
-              src="../UT2.png"
+              src={logo}
               alt="Logo"
               className="h-9 w-15" // Ajusta el tamaño del logo
             />
