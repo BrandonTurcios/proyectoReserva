@@ -22,6 +22,7 @@ export default function CrearReserva() {
   const [showPopup, setShowPopup] = useState(false);
   const [error, setError] = useState("");
 
+
   useEffect(() => {
     const emailFromStorage = localStorage.getItem("email");
     if (emailFromStorage) {
@@ -74,6 +75,7 @@ export default function CrearReserva() {
   };
 
   const handleHorarioChange = (selectedOptions) => {
+
     const selectedHorarioIds = selectedOptions.map(option => option.value);
     if (perfil === "Estudiante" && selectedHorarioIds.length > 2) {
       setError("Los estudiantes solo pueden seleccionar hasta 2 horarios.");
@@ -82,6 +84,7 @@ export default function CrearReserva() {
     setError("");
     setHorariosSeleccionados(selectedHorarioIds);
   };
+  
 
   const handleClearHorarios = () => {
     setHorariosSeleccionados([]);
@@ -227,13 +230,14 @@ export default function CrearReserva() {
   };
 
   return (
-    <div className="relative flex flex-col justify-center items-center h-full min-h-screen bg-[#06065c] overflow-hidden">
+    <div className="relative flex flex-col justify-center items-center h-full min-h-screen bg-[#06065c]">
   {/* Capa superior con forma recortada */}
   <div className="absolute top-0 left-0 w-full h-1/2 bg-[#0f49b6] clip-custom z-0 "></div>
 
   {/* Contenedor del formulario con scroll */}
   <div className="z-10 max-w-lg mx-auto p-4 bg-white shadow-md rounded px-4 overflow-y-auto max-h-[100vh]">
-    <h2 className="text-3xl font-bold mb-4 text-center">Crear Reserva</h2>
+
+  <h2 className="text-3xl font-bold mb-4 text-center">Crear Reserva</h2>
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div>
             <label className="block font-medium text-gray-700">Laboratorio Solicitado</label>
@@ -276,7 +280,7 @@ export default function CrearReserva() {
               <option value="Educación Continua">Educación Continua</option>
             </select>
           </div>
-
+          
           <div>
             <label className="block font-medium text-gray-700">Nombre</label>
             <input
@@ -406,7 +410,7 @@ export default function CrearReserva() {
           </div>
 
           <div>
-          <div>
+          <div >
             <label className="block font-medium text-gray-700">Horario</label>
             <Select
         options={horarios.map(horario => ({ value: horario.id, label: horario.horario }))}

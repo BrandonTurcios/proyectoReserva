@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay } from "date-fns";
-import es from "date-fns/locale/es"; // Localización en español
+import es from "date-fns/locale/es";
 import "react-big-calendar/lib/css/react-big-calendar.css";
-import { supabase } from "../supabaseClient"; // Cliente de Supabase
+import { supabase } from "../supabaseClient";
 
 const locales = { es };
 
@@ -35,7 +35,7 @@ const mensajes = {
 const MiCalendario = () => {
   const [eventos, setEventos] = useState([]);
   const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
-  const [vistaActual, setVistaActual] = useState("month"); // Estado para almacenar la vista actual
+  const [vistaActual, setVistaActual] = useState("month");
 
   useEffect(() => {
     const obtenerReservas = async () => {
@@ -95,55 +95,67 @@ const MiCalendario = () => {
   const handleEventoClick = (event) => {
     if (vistaActual !== "agenda" && vistaActual !== "day" && vistaActual !== "week") {
       setEventoSeleccionado(event);
-      document.body.classList.add("overflow-hidden"); // Evita el scroll y la interacción con el fondo
+      document.body.classList.add("overflow-hidden");
     }
   };
 
   const cerrarModal = () => {
     setEventoSeleccionado(null);
-    document.body.classList.remove("overflow-hidden"); // Restaura el scroll y la interacción con el fondo
+    document.body.classList.remove("overflow-hidden");
   };
 
   return (
-    <div className="h-screen p-4">
-      <h1 className="text-2xl font-bold mb-4 text-center">Calendario de Reservaciones</h1>
-      <Calendar
-        localizer={localizer}
-        events={eventos}
-        startAccessor="start"
-        endAccessor="end"
-        style={{ height: "80vh" }}
-        className="shadow-lg border rounded-lg"
-        messages={mensajes}
-        onView={(view) => setVistaActual(view)} // Guardar la vista actual
-        onSelectEvent={handleEventoClick}
-        components={{
-          agenda: {
-            time: ({ event }) => <span>{event.horarioOriginal}</span>,
-            event: ({ event }) => <span>{event.title}</span>,
-          },
-        }}
-      />
+    <div className="relative flex flex-col justify-center items-center h-full min-h-screen bg-[#06065c]">
+    {/* Capa superior con forma recortada */}
+    <div className="absolute top-0 left-0 w-full h-1/2 bg-[#0f49b6] clip-custom z-0"></div>
+  
+    <div className="relative max-w-6xl w-full mx-auto p-4 md:p-6 bg-white shadow-2xl border border-gray-300 rounded-2xl z-10">
+      <h1 className="text-2xl md:text-3xl font-bold mb-4 text-center text-[#0f49b6]">
+        Calendario de Reservaciones
+      </h1>
+  
+      <div className="w-full overflow-x-auto md:overflow-visible md:p-2 rounded-xl">
+  <Calendar
+    localizer={localizer}
+    events={eventos}
+    startAccessor="start"
+    endAccessor="end"
+    style={{ height: "80vh", minHeight: "500px", width: "100%" }} 
+    className="shadow-lg  rounded-lg"
+    messages={mensajes}
+    onView={(view) => setVistaActual(view)}
+    onSelectEvent={handleEventoClick}
+    components={{
+      agenda: {
+        time: ({ event }) => <span>{event.horarioOriginal}</span>,
+        event: ({ event }) => <span>{event.title}</span>,
+      },
+    }}
+  />
+</div>
 
-      {/* MODAL PARA MOSTRAR DETALLES */}
-      {eventoSeleccionado && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white rounded-lg p-6 w-96 shadow-lg">
-            <h2 className="text-2xl font-bold mb-4">Detalles de la Reservación</h2>
-            <p><strong>Laboratorio:</strong> {eventoSeleccionado.title}</p>
-            <p><strong>Fecha:</strong> {eventoSeleccionado.fecha}</p>
-            <p><strong>Horario:</strong> {eventoSeleccionado.horarioOriginal}</p>
-
-            <button
-              onClick={cerrarModal}
-              className="mt-4 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-700"
-            >
-              Cerrar
-            </button>
-          </div>
-        </div>
-      )}
     </div>
+  
+    {/* MODAL PARA MOSTRAR DETALLES */}
+    {eventoSeleccionado && (
+      <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4">
+        <div className="bg-white rounded-lg p-6 w-full max-w-sm md:max-w-md lg:max-w-lg shadow-lg">
+          <h2 className="text-xl md:text-2xl font-bold mb-4">Detalles de la Reservación</h2>
+          <p><strong>Laboratorio:</strong> {eventoSeleccionado.title}</p>
+          <p><strong>Fecha:</strong> {eventoSeleccionado.fecha}</p>
+          <p><strong>Horario:</strong> {eventoSeleccionado.horarioOriginal}</p>
+  
+          <button
+            onClick={cerrarModal}
+            className="mt-4 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-700 w-full"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    )}
+  </div>
+  
   );
 };
 
