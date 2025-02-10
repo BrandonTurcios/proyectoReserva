@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
 import { motion } from "framer-motion";
-import "../index.css"; // Asegúrate de que contiene la clase `clip-custom`
+import "../index.css"; 
 import Select from "react-select";
 export default function CrearReserva() {
   const [laboratorios, setLaboratorios] = useState([]);
@@ -220,6 +220,13 @@ if (fechaReservacion) {
             .select();
 
           if (!integranteData) throw new Error("Error al insertar integrante");
+          console.log("integrante data 11:")
+          console.log(integranteData[1])
+          console.log("integrante data:")
+          console.log(integranteData[0])
+
+          console.log("integrante data ID:")
+          console.log(integranteData[0].id)
 
           usuariosInsert.push({
             reservacion_id: reservacionId,
