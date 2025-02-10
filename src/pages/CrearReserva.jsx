@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
 import { motion } from "framer-motion";
 import "../index.css"; // Asegúrate de que contiene la clase `clip-custom`
-import Select from 'react-select';
+import Select from "react-select";
 export default function CrearReserva() {
   const [laboratorios, setLaboratorios] = useState([]);
   const [horarios, setHorarios] = useState([]);
@@ -22,16 +22,14 @@ export default function CrearReserva() {
   const [showPopup, setShowPopup] = useState(false);
   const [error, setError] = useState("");
 
-
   useEffect(() => {
     const emailFromStorage = localStorage.getItem("email");
     if (emailFromStorage) {
       setCorreo(emailFromStorage);
     }
     const fetchData = async () => {
-      const { data: laboratoriosData, error: laboratoriosError } = await supabase
-        .from("laboratorios")
-        .select("id, nombre");
+      const { data: laboratoriosData, error: laboratoriosError } =
+        await supabase.from("laboratorios").select("id, nombre");
 
       if (laboratoriosError) {
         console.error("Error fetching laboratorios:", laboratoriosError);
@@ -65,18 +63,15 @@ export default function CrearReserva() {
     setPerfil(selectedPerfil);
 
     if (selectedPerfil === "Estudiante") {
-      setCantidadUsuarios(0);
-    } else {
       setCantidadUsuarios(1);
-    }
+    } 
 
     setIntegrantes([]);
     setHorariosSeleccionados([]);
   };
 
   const handleHorarioChange = (selectedOptions) => {
-
-    const selectedHorarioIds = selectedOptions.map(option => option.value);
+    const selectedHorarioIds = selectedOptions.map((option) => option.value);
     if (perfil === "Estudiante" && selectedHorarioIds.length > 2) {
       setError("Los estudiantes solo pueden seleccionar hasta 2 horarios.");
       return;
@@ -84,16 +79,17 @@ export default function CrearReserva() {
     setError("");
     setHorariosSeleccionados(selectedHorarioIds);
   };
-  
 
   const handleClearHorarios = () => {
     setHorariosSeleccionados([]);
   };
-  
+
   const handleCantidadChange = (e) => {
     const value = parseInt(e.target.value, 10);
     setCantidadUsuarios(value);
-    setIntegrantes(Array(value).fill({ nombre: "",numero_cuenta:"", correo: "" }));
+    setIntegrantes(
+      Array(value).fill({ nombre: "", numero_cuenta: "", correo: "" })
+    );
   };
 
   const handleIntegranteChange = (index, field, value) => {
@@ -103,7 +99,15 @@ export default function CrearReserva() {
   };
 
   const getDiaSemana = (fecha) => {
-    const dias = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+    const dias = [
+      "domingo",
+      "lunes",
+      "martes",
+      "miércoles",
+      "jueves",
+      "viernes",
+      "sábado",
+    ];
     return dias[fecha.getDay()];
   };
 
@@ -137,36 +141,47 @@ export default function CrearReserva() {
       }
 
       if (!usuarioData || usuarioData.length === 0) {
-        throw new Error("No se pudo insertar el usuario o la respuesta está vacía");
+        throw new Error(
+          "No se pudo insertar el usuario o la respuesta está vacía"
+        );
       }
 
       const usuarioId = usuarioData[0].id;
 
       let fechaActual = new Date(fechaInicio);
       const fechaFinal = new Date(fechaFin);
-      const diasReservaciones = [];
+      let diasReservaciones = [];
 
-      while (fechaActual <= fechaFinal) {
-        const diaSemana = getDiaSemana(fechaActual);
-        if (diasSeleccionados.map(d => d.toLowerCase()).includes(diaSemana)) {
-          console.log(diaSemana)
-          diasReservaciones.push(new Date(fechaActual).toISOString().split("T")[0]);
-        }
+if (fechaReservacion) {
+  // Si solo se seleccionó una fecha específica
+  diasReservaciones.push(fechaReservacion);
+} else {
+  // Si se seleccionaron fechas de inicio y fin con días de repetición
+  let fechaActual = new Date(fechaInicio);
+  const fechaFinal = new Date(fechaFin);
 
-        fechaActual.setDate(fechaActual.getDate() + 1);
-      }
+  while (fechaActual <= fechaFinal) {
+    const diaSemana = getDiaSemana(fechaActual);
+    if (diasSeleccionados.map((d) => d.toLowerCase()).includes(diaSemana)) {
+      diasReservaciones.push(fechaActual.toISOString().split("T")[0]);
+    }
+    fechaActual.setDate(fechaActual.getDate() + 1);
+  }
+}
+
 
       for (const fecha of diasReservaciones) {
-        const { data: reservacionData, error: reservacionError } = await supabase
-          .from("reservaciones")
-          .insert({
-            motivo_uso: motivoUso,
-            cantidad_usuarios: cantidadUsuarios,
-            fecha: fecha,
-            dias_repeticion: diasSeleccionados.join(", "),
-            laboratorio_id: laboratorioId,
-          })
-          .select();
+        const { data: reservacionData, error: reservacionError } =
+          await supabase
+            .from("reservaciones")
+            .insert({
+              motivo_uso: motivoUso,
+              cantidad_usuarios: cantidadUsuarios,
+              fecha: fecha,
+              dias_repeticion: diasSeleccionados.join(", "),
+              laboratorio_id: laboratorioId,
+            })
+            .select();
 
         if (reservacionError) {
           console.error("Error al insertar reserva:", reservacionError);
@@ -174,7 +189,9 @@ export default function CrearReserva() {
         }
 
         if (!reservacionData || reservacionData.length === 0) {
-          console.error("No se pudo insertar la reserva o la respuesta está vacía");
+          console.error(
+            "No se pudo insertar la reserva o la respuesta está vacía"
+          );
           return;
         }
 
@@ -187,7 +204,10 @@ export default function CrearReserva() {
 
         await supabase.from("reservaciones_horarios").insert(horariosInsert);
 
-        const usuariosInsert = [{ reservacion_id: reservacionId, usuario_id: usuarioId }];
+        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        const usuariosInsert = [
+          { reservacion_id: reservacionId, usuario_id: usuarioId },
+        ];
         for (const integrante of integrantes) {
           const integranteData = await supabase
             .from("usuarios")
@@ -231,16 +251,17 @@ export default function CrearReserva() {
 
   return (
     <div className="relative flex flex-col justify-center items-center h-full min-h-screen bg-[#06065c]">
-  {/* Capa superior con forma recortada */}
-  <div className="absolute top-0 left-0 w-full h-1/2 bg-[#0f49b6] clip-custom z-0 "></div>
+      {/* Capa superior con forma recortada */}
+      <div className="absolute top-0 left-0 w-full h-1/2 bg-[#0f49b6] clip-custom z-0 "></div>
 
-  {/* Contenedor del formulario con scroll */}
-  <div className="z-10 max-w-lg mx-auto p-4 bg-white shadow-md rounded px-4 overflow-y-auto max-h-[100vh]">
-
-  <h2 className="text-3xl font-bold mb-4 text-center">Crear Reserva</h2>
+      {/* Contenedor del formulario con scroll */}
+      <div className="z-10 max-w-lg mx-auto p-4 bg-white shadow-md rounded px-4 overflow-y-auto max-h-[100vh]">
+        <h2 className="text-3xl font-bold mb-4 text-center">Crear Reserva</h2>
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div>
-            <label className="block font-medium text-gray-700">Laboratorio Solicitado</label>
+            <label className="block font-medium text-gray-700">
+              Laboratorio Solicitado
+            </label>
             <select
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
               value={laboratorioId}
@@ -249,13 +270,17 @@ export default function CrearReserva() {
             >
               <option value="">Seleccione un laboratorio</option>
               {laboratorios.map((lab) => (
-                <option key={lab.id} value={lab.id}>{lab.nombre}</option>
+                <option key={lab.id} value={lab.id}>
+                  {lab.nombre}
+                </option>
               ))}
             </select>
           </div>
 
           <div>
-            <label className="block font-medium text-gray-700">Motivos de uso</label>
+            <label className="block font-medium text-gray-700">
+              Motivos de uso
+            </label>
             <textarea
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
               value={motivoUso}
@@ -265,7 +290,9 @@ export default function CrearReserva() {
           </div>
 
           <div>
-            <label className="block font-medium text-gray-700">Perfil del solicitante</label>
+            <label className="block font-medium text-gray-700">
+              Perfil del solicitante
+            </label>
             <select
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
               value={perfil}
@@ -280,7 +307,7 @@ export default function CrearReserva() {
               <option value="Educación Continua">Educación Continua</option>
             </select>
           </div>
-          
+
           <div>
             <label className="block font-medium text-gray-700">Nombre</label>
             <input
@@ -293,7 +320,9 @@ export default function CrearReserva() {
           </div>
 
           <div>
-            <label className="block font-medium text-gray-700">Número de cuenta</label>
+            <label className="block font-medium text-gray-700">
+              Número de cuenta
+            </label>
             <input
               type="text"
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
@@ -304,7 +333,9 @@ export default function CrearReserva() {
           </div>
 
           <div>
-            <label className="block font-medium text-gray-700">Correo electrónico</label>
+            <label className="block font-medium text-gray-700">
+              Correo electrónico
+            </label>
             <input
               type="email"
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
@@ -329,40 +360,53 @@ export default function CrearReserva() {
               />
               {integrantes.map((_, index) => (
                 <div key={index} className="flex flex-wrap gap-2 mt-2">
-                <input
-                  type="text"
-                  placeholder={`Nombre del integrante ${index + 1}`}
-                  className="w-full sm:w-auto flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
-                  onChange={(e) =>
-                    handleIntegranteChange(index, "nombre", e.target.value)
-                  }
-                />
-                <input
-                  type="text"
-                  placeholder="Número de cuenta"
-                  className="w-full sm:w-auto flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
-                  onChange={(e) =>
-                    handleIntegranteChange(index, "numero_cuenta", e.target.value)
-                  }
-                />
-                <input
-                  type="email"
-                  placeholder="Correo electrónico"
-                  className="w-full sm:w-auto flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
-                  onChange={(e) =>
-                    handleIntegranteChange(index, "correo", e.target.value)
-                  }
-                />
-              </div>
-              
+                  <input
+                    type="text"
+                    placeholder={`Nombre del integrante ${index + 1}`}
+                    className="w-full sm:w-auto flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
+                    onChange={(e) =>
+                      handleIntegranteChange(index, "nombre", e.target.value)
+                    }
+                  />
+                  <input
+                    type="text"
+                    placeholder="Número de cuenta"
+                    className="w-full sm:w-auto flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
+                    onChange={(e) =>
+                      handleIntegranteChange(
+                        index,
+                        "numero_cuenta",
+                        e.target.value
+                      )
+                    }
+                  />
+                  <input
+                    type="email"
+                    placeholder="Correo electrónico"
+                    className="w-full sm:w-auto flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
+                    onChange={(e) =>
+                      handleIntegranteChange(index, "correo", e.target.value)
+                    }
+                  />
+                </div>
               ))}
             </div>
           )}
-
+          
+            
           <div>
-            <label className="block font-medium text-gray-700">Días de Repetición</label>
+            <label className="block font-medium text-gray-700">
+              Días de Repetición
+            </label>
             <div className="flex flex-wrap gap-2">
-              {["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"].map((dia) => (
+              {[
+                "Lunes",
+                "Martes",
+                "Miércoles",
+                "Jueves",
+                "Viernes",
+                "Sábado",
+              ].map((dia) => (
                 <label key={dia} className="flex items-center space-x-2">
                   <input
                     type="checkbox"
@@ -376,20 +420,25 @@ export default function CrearReserva() {
               ))}
             </div>
           </div>
-
+          
+          
           <div>
-            <label className="block font-medium text-gray-700">Fecha de Inicio</label>
+            <label className="block font-medium text-gray-700">
+              Fecha de Inicio
+            </label>
             <input
               type="date"
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
               value={fechaInicio}
               onChange={(e) => setFechaInicio(e.target.value)}
-              required
+              
             />
           </div>
 
           <div>
-            <label className="block font-medium text-gray-700">Fecha de Finalización</label>
+            <label className="block font-medium text-gray-700">
+              Fecha de Finalización
+            </label>
             <input
               type="date"
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
@@ -397,9 +446,11 @@ export default function CrearReserva() {
               onChange={(e) => setFechaFin(e.target.value)}
             />
           </div>
-
+        
           <div>
-            <label className="block font-medium text-gray-700">Fecha de reservación</label>
+            <label className="block font-medium text-gray-700">
+              Fecha de reservación
+            </label>
             <input
               type="date"
               required
@@ -408,26 +459,30 @@ export default function CrearReserva() {
               onChange={(e) => setFechaReservacion(e.target.value)}
             />
           </div>
-
+        
           <div>
-          <div >
-            <label className="block font-medium text-gray-700">Horario</label>
-            <Select
-        options={horarios.map(horario => ({ value: horario.id, label: horario.horario }))}
-        isMulti
-        onChange={handleHorarioChange}
-        isSearchable={false}
-        value={horariosSeleccionados.map(id => {
-          const horario = horarios.find(h => h.id === id);
-          return horario ? { value: horario.id, label: horario.horario } : null;
-        }).filter(Boolean)}
-      />
+            <div>
+              <label className="block font-medium text-gray-700">Horario</label>
+              <Select
+                options={horarios.map((horario) => ({
+                  value: horario.id,
+                  label: horario.horario,
+                }))}
+                isMulti
+                onChange={handleHorarioChange}
+                isSearchable={false}
+                value={horariosSeleccionados
+                  .map((id) => {
+                    const horario = horarios.find((h) => h.id === id);
+                    return horario
+                      ? { value: horario.id, label: horario.horario }
+                      : null;
+                  })
+                  .filter(Boolean)}
+              />
 
-      {error && <p className="text-red-500">{error}</p>}
-
-      
-           
-          </div>
+              {error && <p className="text-red-500">{error}</p>}
+            </div>
           </div>
 
           <button
@@ -455,7 +510,9 @@ export default function CrearReserva() {
                 ✓
               </motion.div>
               <h3 className="text-lg font-semibold">Reserva Creada</h3>
-              <p className="text-gray-600">Tu reserva ha sido realizada con éxito.</p>
+              <p className="text-gray-600">
+                Tu reserva ha sido realizada con éxito.
+              </p>
             </motion.div>
           </div>
         )}
