@@ -21,6 +21,7 @@ export default function CrearReserva() {
   const [laboratorioId, setLaboratorioId] = useState(null);
   const [showPopup, setShowPopup] = useState(false);
   const [error, setError] = useState("");
+  const [habilitado,setHabilitado] = useState(false);
 
   useEffect(() => {
     const emailFromStorage = localStorage.getItem("email");
@@ -61,6 +62,7 @@ export default function CrearReserva() {
   const handlePerfilChange = (e) => {
     const selectedPerfil = e.target.value;
     setPerfil(selectedPerfil);
+    setHabilitado(e.target.value !== "");
 
     if (selectedPerfil === "Estudiante") {
       setCantidadUsuarios(1);
@@ -283,19 +285,6 @@ if (fechaReservacion) {
               ))}
             </select>
           </div>
-
-          <div>
-            <label className="block font-medium text-gray-700">
-              Motivos de uso
-            </label>
-            <textarea
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-              value={motivoUso}
-              onChange={(e) => setMotivoUso(e.target.value)}
-              required
-            ></textarea>
-          </div>
-
           <div>
             <label className="block font-medium text-gray-700">
               Perfil del solicitante
@@ -305,6 +294,7 @@ if (fechaReservacion) {
               value={perfil}
               onChange={handlePerfilChange}
               required
+              
             >
               <option value="">Seleccione un perfil</option>
               <option value="Estudiante">Estudiante</option>
@@ -315,6 +305,30 @@ if (fechaReservacion) {
             </select>
           </div>
 
+
+
+
+
+
+
+
+
+
+          <div>
+            <label className="block font-medium text-gray-700">
+              Motivos de uso
+            </label>
+            <textarea
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+              value={motivoUso}
+              onChange={(e) => setMotivoUso(e.target.value)}
+              required
+              disabled={!habilitado}
+            ></textarea>
+          </div>
+
+          
+
           <div>
             <label className="block font-medium text-gray-700">Nombre</label>
             <input
@@ -322,6 +336,7 @@ if (fechaReservacion) {
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
               value={nombre}
               required
+              disabled={!habilitado}
               onChange={(e) => setNombre(e.target.value)}
             />
           </div>
@@ -335,6 +350,7 @@ if (fechaReservacion) {
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
               value={numeroCuenta}
               required
+              disabled={!habilitado}
               onChange={(e) => setNumeroCuenta(e.target.value)}
             />
           </div>
@@ -363,7 +379,8 @@ if (fechaReservacion) {
                 required
                 onChange={handleCantidadChange}
                 max={19}
-                min={0}
+                min={1}
+                
               />
               {integrantes.map((_, index) => (
                 <div key={index} className="flex flex-wrap gap-2 mt-2">
@@ -421,6 +438,7 @@ if (fechaReservacion) {
                     checked={diasSeleccionados.includes(dia)}
                     onChange={handleDiasChange}
                     className="form-checkbox"
+                    disabled={!habilitado}
                   />
                   <span>{dia}</span>
                 </label>
@@ -438,6 +456,7 @@ if (fechaReservacion) {
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
               value={fechaInicio}
               onChange={(e) => setFechaInicio(e.target.value)}
+              disabled={!habilitado}
               
             />
           </div>
@@ -450,6 +469,7 @@ if (fechaReservacion) {
               type="date"
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
               value={fechaFin}
+              disabled={!habilitado}
               onChange={(e) => setFechaFin(e.target.value)}
             />
           </div>
@@ -461,6 +481,7 @@ if (fechaReservacion) {
             <input
               type="date"
               required
+              disabled={!habilitado}
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
               value={fechaReservacion}
               onChange={(e) => setFechaReservacion(e.target.value)}
@@ -471,6 +492,7 @@ if (fechaReservacion) {
             <div>
               <label className="block font-medium text-gray-700">Horario</label>
               <Select
+              
                 options={horarios.map((horario) => ({
                   value: horario.id,
                   label: horario.horario,
@@ -478,6 +500,8 @@ if (fechaReservacion) {
                 isMulti
                 onChange={handleHorarioChange}
                 isSearchable={false}
+                isDisabled={!habilitado}
+                
                 value={horariosSeleccionados
                   .map((id) => {
                     const horario = horarios.find((h) => h.id === id);
@@ -486,6 +510,7 @@ if (fechaReservacion) {
                       : null;
                   })
                   .filter(Boolean)}
+                  
               />
 
               {error && <p className="text-red-500">{error}</p>}
