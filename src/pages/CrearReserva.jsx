@@ -3,6 +3,7 @@ import { supabase } from "../supabaseClient";
 import { motion } from "framer-motion";
 import "../index.css"; 
 import Select from "react-select";
+
 export default function CrearReserva() {
   const [laboratorios, setLaboratorios] = useState([]);
   const [horarios, setHorarios] = useState([]);
@@ -304,16 +305,6 @@ if (fechaReservacion) {
               <option value="Educación Continua">Educación Continua</option>
             </select>
           </div>
-
-
-
-
-
-
-
-
-
-
           <div>
             <label className="block font-medium text-gray-700">
               Motivos de uso
@@ -326,8 +317,6 @@ if (fechaReservacion) {
               disabled={!habilitado}
             ></textarea>
           </div>
-
-          
 
           <div>
             <label className="block font-medium text-gray-700">Nombre</label>
@@ -416,8 +405,7 @@ if (fechaReservacion) {
               ))}
             </div>
           )}
-          
-            
+     
           <div>
             <label className="block font-medium text-gray-700">
               Días de Repetición
@@ -446,7 +434,6 @@ if (fechaReservacion) {
             </div>
           </div>
           
-          
           <div>
             <label className="block font-medium text-gray-700">
               Fecha de Inicio
@@ -456,8 +443,7 @@ if (fechaReservacion) {
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
               value={fechaInicio}
               onChange={(e) => setFechaInicio(e.target.value)}
-              disabled={!habilitado}
-              
+              disabled={!habilitado} 
             />
           </div>
 
@@ -501,7 +487,6 @@ if (fechaReservacion) {
                 onChange={handleHorarioChange}
                 isSearchable={false}
                 isDisabled={!habilitado}
-                
                 value={horariosSeleccionados
                   .map((id) => {
                     const horario = horarios.find((h) => h.id === id);
