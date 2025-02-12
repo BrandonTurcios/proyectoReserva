@@ -410,28 +410,38 @@ if (fechaReservacion) {
             <label className="block font-medium text-gray-700">
               Días de Repetición
             </label>
-            <div className="flex flex-wrap gap-2">
-              {[
-                "Lunes",
-                "Martes",
-                "Miércoles",
-                "Jueves",
-                "Viernes",
-                "Sábado",
-              ].map((dia) => (
-                <label key={dia} className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    value={dia}
-                    checked={diasSeleccionados.includes(dia)}
-                    onChange={handleDiasChange}
-                    className="form-checkbox"
-                    disabled={!habilitado}
-                  />
-                  <span>{dia}</span>
-                </label>
-              ))}
-            </div>
+            <div className="flex flex-wrap gap-3">
+  {["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"].map((dia) => (
+    <label key={dia} className="flex items-center cursor-pointer space-x-2">
+      <input
+        type="checkbox"
+        value={dia}
+        checked={diasSeleccionados.includes(dia)}
+        onChange={handleDiasChange}
+        disabled={!habilitado}
+        className="peer hidden"
+      />
+      <div className="w-5 h-5 flex items-center justify-center border-2 border-gray-400 rounded-md 
+                      peer-checked:border-blue-500 peer-checked:bg-blue-500 transition-all duration-200
+                      peer-disabled:opacity-50 peer-disabled:cursor-not-allowed">
+        <svg
+          className="w-4 h-4 text-white opacity-0 peer-checked:opacity-100 transition-opacity duration-200"
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fillRule="evenodd"
+            d="M16.707 5.293a1 1 0 00-1.414 0L7 13.586 4.707 11.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l9-9a1 1 0 000-1.414z"
+            clipRule="evenodd"
+          />
+        </svg>
+      </div>
+      <span className="text-gray-800 peer-disabled:text-gray-400">{dia}</span>
+    </label>
+  ))}
+</div>
+
           </div>
           
           <div>

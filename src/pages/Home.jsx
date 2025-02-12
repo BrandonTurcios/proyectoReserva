@@ -1,4 +1,4 @@
-import medidasImg from "./medidas.png";
+import medidasImg from "./medidas.webp";
 
 const Home = () => {
   return (
