@@ -166,7 +166,6 @@ export default function CrearReserva() {
         }
 
         for (const fecha of diasReservaciones) {
-            // 1️⃣ Obtener todas las reservas para esta fecha y laboratorio
             const { data: reservasFecha, error: errorReservasFecha } = await supabase
                 .from("reservaciones")
                 .select("id")
@@ -181,7 +180,7 @@ export default function CrearReserva() {
             const reservasIds = reservasFecha.map((reserva) => reserva.id);
 
             for (const horarioId of horariosSeleccionados) {
-                // 2️⃣ Contar cuántas reservas hay en este horario
+                
                 const { count: reservasEnHorario, error: errorConsulta } = await supabase
                     .from("reservaciones_horarios")
                     .select("id", { count: "exact" })
@@ -193,7 +192,7 @@ export default function CrearReserva() {
                     return;
                 }
 
-                if (reservasEnHorario >= 20) {
+                if (reservasEnHorario >= 2) {
                     setError(`No se puede reservar, ya hay 20 reservas en el horario ${horarioId}.`);
                     return;
                 }
