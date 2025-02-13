@@ -118,146 +118,160 @@ export default function CrearReserva() {
     e.preventDefault();
 
     if (perfil === "Estudiante" && horariosSeleccionados.length > 2) {
-      setError("Los estudiantes solo pueden seleccionar hasta 2 horarios.");
-      return;
+        setError("Los estudiantes solo pueden seleccionar hasta 2 horarios.");
+        return;
     }
 
     try {
-      const { data: usuarioData, error: usuarioError } = await supabase
-        .from("usuarios")
-        .insert(
-          [
-            {
-              nombre: nombre,
-              numero_cuenta: numeroCuenta,
-              correo: correo,
-              tipo_usuario: perfil,
-            },
-          ],
-          { returning: "minimal" }
-        )
-        .select();
-
-      if (usuarioError) {
-        console.error("Error al insertar usuario:", usuarioError);
-        throw new Error("Error al insertar usuario");
-      }
-
-      if (!usuarioData || usuarioData.length === 0) {
-        throw new Error(
-          "No se pudo insertar el usuario o la respuesta está vacía"
-        );
-      }
-
-      const usuarioId = usuarioData[0].id;
-
-      let fechaActual = new Date(fechaInicio);
-      const fechaFinal = new Date(fechaFin);
-      let diasReservaciones = [];
-
-if (fechaReservacion) {
-  // Si solo se seleccionó una fecha específica
-  diasReservaciones.push(fechaReservacion);
-} else {
-  // Si se seleccionaron fechas de inicio y fin con días de repetición
-  let fechaActual = new Date(fechaInicio);
-  const fechaFinal = new Date(fechaFin);
-
-  while (fechaActual <= fechaFinal) {
-    const diaSemana = getDiaSemana(fechaActual);
-    if (diasSeleccionados.map((d) => d.toLowerCase()).includes(diaSemana)) {
-      diasReservaciones.push(fechaActual.toISOString().split("T")[0]);
-    }
-    fechaActual.setDate(fechaActual.getDate() + 1);
-  }
-}
-
-
-      for (const fecha of diasReservaciones) {
-        const { data: reservacionData, error: reservacionError } =
-          await supabase
-            .from("reservaciones")
-            .insert({
-              motivo_uso: motivoUso,
-              cantidad_usuarios: cantidadUsuarios,
-              fecha: fecha,
-              dias_repeticion: diasSeleccionados.join(", "),
-              laboratorio_id: laboratorioId,
-            })
-            .select();
-
-        if (reservacionError) {
-          console.error("Error al insertar reserva:", reservacionError);
-          return;
-        }
-
-        if (!reservacionData || reservacionData.length === 0) {
-          console.error(
-            "No se pudo insertar la reserva o la respuesta está vacía"
-          );
-          return;
-        }
-
-        const reservacionId = reservacionData[0].id;
-
-        const horariosInsert = horariosSeleccionados.map((horarioId) => ({
-          reservacion_id: reservacionId,
-          horario_id: horarioId,
-        }));
-
-        await supabase.from("reservaciones_horarios").insert(horariosInsert);
-
-        //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        const usuariosInsert = [
-          { reservacion_id: reservacionId, usuario_id: usuarioId },
-        ];
-        for (const integrante of integrantes) {
-          const integranteData = await supabase
+        const { data: usuarioData, error: usuarioError } = await supabase
             .from("usuarios")
-            .insert({
-              nombre: integrante.nombre,
-              correo: integrante.correo,
-              numero_cuenta: integrante.numero_cuenta,
-              tipo_usuario: "Estudiante",
-            })
+            .insert(
+                [
+                    {
+                        nombre: nombre,
+                        numero_cuenta: numeroCuenta,
+                        correo: correo,
+                        tipo_usuario: perfil,
+                    },
+                ],
+                { returning: "minimal" }
+            )
             .select();
 
-          if (!integranteData) throw new Error("Error al insertar integrante");
-          console.log("integrante data 11:")
-          console.log(integranteData[1])
-          console.log("integrante data:")
-          console.log(integranteData[0])
-
-          console.log("integrante data ID:")
-          console.log(integranteData[0].id)
-
-          usuariosInsert.push({
-            reservacion_id: reservacionId,
-            usuario_id: integranteData[0].id,
-          });
+        if (usuarioError) {
+            console.error("Error al insertar usuario:", usuarioError);
+            throw new Error("Error al insertar usuario");
         }
 
-        await supabase.from("reservaciones_usuarios").insert(usuariosInsert);
-      }
+        if (!usuarioData || usuarioData.length === 0) {
+            throw new Error("No se pudo insertar el usuario o la respuesta está vacía");
+        }
 
-      setShowPopup(true);
-      setTimeout(() => setShowPopup(false), 2000);
+        const usuarioId = usuarioData[0].id;
+        let diasReservaciones = [];
 
-      setPerfil("");
-      setCantidadUsuarios(1);
-      setIntegrantes([]);
-      setHorariosSeleccionados([]);
-      setMotivoUso("");
-      setNombre("");
-      setNumeroCuenta("");
-      setDiasSeleccionados([]);
-      setFechaInicio("");
-      setFechaFin("");
-      setLaboratorioId(0);
+        if (fechaReservacion) {
+            diasReservaciones.push(fechaReservacion);
+        } else {
+            let fechaActual = new Date(fechaInicio);
+            const fechaFinal = new Date(fechaFin);
+
+            while (fechaActual <= fechaFinal) {
+                const diaSemana = getDiaSemana(fechaActual);
+                if (diasSeleccionados.map((d) => d.toLowerCase()).includes(diaSemana)) {
+                    diasReservaciones.push(fechaActual.toISOString().split("T")[0]);
+                }
+                fechaActual.setDate(fechaActual.getDate() + 1);
+            }
+        }
+
+        for (const fecha of diasReservaciones) {
+            // 1️⃣ Obtener todas las reservas para esta fecha y laboratorio
+            const { data: reservasFecha, error: errorReservasFecha } = await supabase
+                .from("reservaciones")
+                .select("id")
+                .eq("fecha", fecha)
+                .eq("laboratorio_id", laboratorioId);
+
+            if (errorReservasFecha) {
+                console.error("Error al obtener reservas por fecha:", errorReservasFecha);
+                return;
+            }
+
+            const reservasIds = reservasFecha.map((reserva) => reserva.id);
+
+            for (const horarioId of horariosSeleccionados) {
+                // 2️⃣ Contar cuántas reservas hay en este horario
+                const { count: reservasEnHorario, error: errorConsulta } = await supabase
+                    .from("reservaciones_horarios")
+                    .select("id", { count: "exact" })
+                    .in("reservacion_id", reservasIds)
+                    .eq("horario_id", horarioId);
+
+                if (errorConsulta) {
+                    console.error("Error al consultar reservas en horario:", errorConsulta);
+                    return;
+                }
+
+                if (reservasEnHorario >= 20) {
+                    setError(`No se puede reservar, ya hay 20 reservas en el horario ${horarioId}.`);
+                    return;
+                }
+            }
+
+            const { data: reservacionData, error: reservacionError } = await supabase
+                .from("reservaciones")
+                .insert({
+                    motivo_uso: motivoUso,
+                    cantidad_usuarios: cantidadUsuarios,
+                    fecha: fecha,
+                    dias_repeticion: diasSeleccionados.join(", "),
+                    laboratorio_id: laboratorioId,
+                })
+                .select();
+
+            if (reservacionError) {
+                console.error("Error al insertar reserva:", reservacionError);
+                return;
+            }
+
+            if (!reservacionData || reservacionData.length === 0) {
+                console.error("No se pudo insertar la reserva o la respuesta está vacía");
+                return;
+            }
+
+            const reservacionId = reservacionData[0].id;
+
+            const horariosInsert = horariosSeleccionados.map((horarioId) => ({
+                reservacion_id: reservacionId,
+                horario_id: horarioId,
+            }));
+
+            await supabase.from("reservaciones_horarios").insert(horariosInsert);
+
+            const usuariosInsert = [{ reservacion_id: reservacionId, usuario_id: usuarioId }];
+
+            for (const integrante of integrantes) {
+                const integranteData = await supabase
+                    .from("usuarios")
+                    .insert({
+                        nombre: integrante.nombre,
+                        correo: integrante.correo,
+                        numero_cuenta: integrante.numero_cuenta,
+                        tipo_usuario: "Estudiante",
+                    })
+                    .select();
+
+                if (!integranteData) throw new Error("Error al insertar integrante");
+
+                usuariosInsert.push({
+                    reservacion_id: reservacionId,
+                    usuario_id: integranteData[0].id,
+                });
+            }
+
+            await supabase.from("reservaciones_usuarios").insert(usuariosInsert);
+        }
+
+        setShowPopup(true);
+        setTimeout(() => setShowPopup(false), 2000);
+
+        setPerfil("");
+        setCantidadUsuarios(1);
+        setIntegrantes([]);
+        setHorariosSeleccionados([]);
+        setMotivoUso("");
+        setNombre("");
+        setNumeroCuenta("");
+        setDiasSeleccionados([]);
+        setFechaInicio("");
+        setFechaFin("");
+        setLaboratorioId(0);
     } catch (error) {
-      console.error("Error al crear la reserva:", error);
+        console.error("Error al crear la reserva:", error);
     }
-  };
+};
+
 
   return (
     <div className="relative flex flex-col justify-center items-center h-full min-h-screen bg-[#06065c]">

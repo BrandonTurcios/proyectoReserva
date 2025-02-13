@@ -1,10 +1,10 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
   css: {
-    postcss: './postcss.config.cjs', // Ensure this points to your PostCSS config
+    postcss: './postcss.config.cjs', 
   },
+  'process.env': process.env
 });
