@@ -101,18 +101,8 @@ export default function CrearReserva() {
     setIntegrantes(updatedIntegrantes);
   };
 
-  const getDiaSemana = (fecha) => {
-    const dias = [
-      "domingo",
-      "lunes",
-      "martes",
-      "miércoles",
-      "jueves",
-      "viernes",
-      "sábado",
-    ];
-    return dias[fecha.getDay()];
-  };
+  const getDiaSemana = (fecha) => fecha.getDay(); // Devuelve el índice del día
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -150,6 +140,20 @@ export default function CrearReserva() {
         const usuarioId = usuarioData[0].id;
         let diasReservaciones = [];
 
+
+        const diasSeleccionadosIndices = diasSeleccionados.map((dia) => {
+          const mapping = {
+              "Lunes": 0,
+              "Martes": 1,
+              "Miércoles": 2,
+              "Jueves": 3,
+              "Viernes": 4,
+              "Sábado": 5,
+              "Domingo": 6,
+          };
+          return mapping[dia];
+      });
+
         if (fechaReservacion) {
             diasReservaciones.push(fechaReservacion);
         } else {
@@ -157,12 +161,12 @@ export default function CrearReserva() {
             const fechaFinal = new Date(fechaFin);
 
             while (fechaActual <= fechaFinal) {
-                const diaSemana = getDiaSemana(fechaActual);
-                if (diasSeleccionados.map((d) => d.toLowerCase()).includes(diaSemana)) {
-                    diasReservaciones.push(fechaActual.toISOString().split("T")[0]);
-                }
-                fechaActual.setDate(fechaActual.getDate() + 1);
-            }
+              const diaSemana = getDiaSemana(fechaActual); // Ahora devuelve índice numérico
+              if (diasSeleccionadosIndices.includes(diaSemana)) {
+                  diasReservaciones.push(fechaActual.toISOString().split("T")[0]);
+              }
+              fechaActual.setDate(fechaActual.getDate() + 1);
+          }
         }
 
         for (const fecha of diasReservaciones) {
@@ -191,7 +195,7 @@ export default function CrearReserva() {
                     console.error("Error al consultar reservas en horario:", errorConsulta);
                     return;
                 }
-
+                //çççççççççççççççççççççççççççççççççççççççççççççççççççççççççççççççççççççççççççççççççççççççç
                 if (reservasEnHorario >= 2) {
                     setError(`No se puede reservar, ya hay 20 reservas en el horario ${horarioId}.`);
                     return;
@@ -489,7 +493,7 @@ export default function CrearReserva() {
             </label>
             <input
               type="date"
-              required
+              
               disabled={!habilitado}
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
               value={fechaReservacion}
