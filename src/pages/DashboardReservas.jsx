@@ -23,10 +23,10 @@ export default function DashboardReservas() {
     const { data, error } = await supabase
       .from("reservaciones")
       .select(
-        `id, motivo_uso, cantidad_usuarios, fecha, estado, 
-        laboratorios(nombre), 
-        reservaciones_usuarios(usuario_id, usuarios(correo, nombre, tipo_usuario)),
-        reservaciones_horarios(horarios(horario))`
+        "id, motivo_uso, cantidad_usuarios, fecha, estado, laboratorio_id, " +
+        "laboratorios(nombre), " +
+        "reservaciones_usuarios(usuario_id, usuarios(correo, nombre, tipo_usuario)), " +
+        "reservaciones_horarios(horarios(horario))"
       )
       .order("id", { ascending: true });
 
@@ -41,7 +41,7 @@ export default function DashboardReservas() {
   async function obtenerLaboratorios() {
     const { data, error } = await supabase
       .from("laboratorios")
-      .select("nombre");
+      .select("id, nombre");
 
     if (error) {
       console.error("Error al obtener laboratorios:", error);
@@ -50,20 +50,94 @@ export default function DashboardReservas() {
     }
   }
 
-  async function actualizarEstadoGrupo(ids, nuevoEstado) {
+  async function verificarLimiteReservas(laboratorioId, fecha, horario) {
+    const { data, error } = await supabase
+      .from("reservaciones")
+      .select(`
+        id,
+        reservaciones_horarios!inner (
+          horarios!inner (
+            horario
+          )
+        )
+      `)
+      .eq("laboratorio_id", laboratorioId)
+      .eq("fecha", fecha)
+      .eq("estado", "APROBADA")
+      .eq("reservaciones_horarios.horarios.horario", horario); // Usamos .eq en lugar de .contains
+  
+    if (error) {
+      console.error("Error al verificar el límite de reservas:", error);
+      return false;
+    }
+  
+    return data.length >= 20;
+  }
+
+  async function enviarCorreo(destinatario, asunto, cuerpo) {
+    try {
+      const response = await fetch("http://localhost:5000/enviar-correo", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ destinatario, asunto, cuerpo }),
+      });
+
+      if (response.ok) {
+        console.log("Correo enviado correctamente");
+      } else {
+        console.error("Error al enviar el correo");
+      }
+    } catch (error) {
+      console.error("Error en la solicitud:", error);
+    }
+  }
+
+  async function actualizarEstadoGrupo(ids, nuevoEstado, grupo) {
+    if (nuevoEstado === "APROBADA") {
+      const laboratorioId = grupo.laboratorio_id;
+      const fecha = grupo.fechas[0].toISOString().split("T")[0];
+      const horario = grupo.horarios.split(", ")[0];
+  
+      const limiteExcedido = await verificarLimiteReservas(laboratorioId, fecha, horario);
+  
+      if (limiteExcedido) {
+        const confirmacion = window.confirm(
+          "Si aceptas esta reserva se pasará del límite de 20. ¿Deseas continuar? (si/no)"
+        );
+  
+        if (!confirmacion) {
+          return;
+        }
+      }
+  
+      // Enviar correo electrónico al usuario que hizo la reserva
+      const destinatario = grupo.correos.split(", ")[0]; // Tomamos el primer correo
+      const cuerpoCorreo = `Reserva aprobada:
+        Laboratorio: ${grupo.laboratorios?.nombre}
+        Fecha: ${fecha}
+        Horario: ${horario}
+        Motivo: ${grupo.motivo_uso}
+        Usuarios: ${grupo.nombresUsuarios}
+        Correos: ${grupo.correos}`;
+  
+      enviarCorreo(destinatario, "Reserva Aprobada", cuerpoCorreo);
+    }
+  
     const { error } = await supabase
       .from("reservaciones")
       .update({ estado: nuevoEstado })
-      .in("id", ids); // Actualiza solo las reservas cuyo id esté en el array `ids`
+      .in("id", ids);
   
     if (error) {
       console.error("Error al actualizar el estado de la reserva:", error);
     } else {
       console.log("Reservas actualizadas correctamente");
-      obtenerReservas(); // Vuelve a cargar las reservas con los nuevos estados
+      obtenerReservas();
     }
   }
-  
+
   function agruparReservas(reservas) {
     const agrupadas = reservas.reduce((acc, reserva) => {
       const correos =
@@ -195,7 +269,7 @@ export default function DashboardReservas() {
           </thead>
           <tbody>
             {reservasAgrupadas
-              .filter((grupo) => 
+              .filter((grupo) =>
                 (estadoFiltro === "TODOS" || grupo.estado === estadoFiltro) &&
                 (tipoUsuarioFiltro === "TODOS" || grupo.tiposUsuarios.includes(tipoUsuarioFiltro)) &&
                 (laboratorioFiltro === "TODOS" || grupo.laboratorios?.nombre === laboratorioFiltro)
@@ -217,13 +291,13 @@ export default function DashboardReservas() {
                       {grupo.estado === "EN_ESPERA" && (
                         <>
                           <button
-                            onClick={() => actualizarEstadoGrupo(grupo.ids, "APROBADA")}
+                            onClick={() => actualizarEstadoGrupo(grupo.ids, "APROBADA", grupo)}
                             className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition"
                           >
                             Aceptar
                           </button>
                           <button
-                            onClick={() => actualizarEstadoGrupo(grupo.ids, "RECHAZADA")}
+                            onClick={() => actualizarEstadoGrupo(grupo.ids, "RECHAZADA", grupo)}
                             className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition"
                           >
                             Rechazar
