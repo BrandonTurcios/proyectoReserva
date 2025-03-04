@@ -161,7 +161,7 @@ export default function CrearReserva() {
             const fechaFinal = new Date(fechaFin);
 
             while (fechaActual <= fechaFinal) {
-              const diaSemana = getDiaSemana(fechaActual); // Ahora devuelve índice numérico
+              const diaSemana = getDiaSemana(fechaActual);
               if (diasSeleccionadosIndices.includes(diaSemana)) {
                   diasReservaciones.push(fechaActual.toISOString().split("T")[0]);
               }

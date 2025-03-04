@@ -10,7 +10,7 @@ const Home = () => {
       <img
         src={medidasImg}
         alt="Página de inicio"
-        className="relative z-10 max-w-full md:max-w-lg lg:max-w-md shadow-lg opacity-90"
+        className="relative z-10 max-w-full md:max-w-lg lg:max-w-md shadow-lg opacity-90 rounded-3xl"
       />
     </div>
   );

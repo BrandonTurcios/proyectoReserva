@@ -11,6 +11,7 @@ const Calendario = lazy(() => import("./pages/Calendario"));
 const Incidente = lazy(() => import("./pages/Incidente"));
 const Home = lazy(() => import("./pages/Home"));
 const Inicio = lazy(() => import("./pages/Inicio"));
+const Dashboard = lazy(() => import("./pages/DashboardReservas"));
 
 // Pantalla de carga
 function LoadingScreen() {
@@ -57,7 +58,7 @@ function App() {
             <Route path="crear-reserva" element={<CrearReserva />} />
             <Route path="mis-reservas" element={<MisReservas />} />
             <Route path="calendario" element={<Calendario />} />
-            <Route path="incidente" element={<Incidente />} />
+            <Route path="incidente" element={<Dashboard />} />
           </Route>
         </Routes>
       </Suspense>

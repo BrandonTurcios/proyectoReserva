@@ -48,7 +48,7 @@ const MiCalendario = () => {
           reservaciones_horarios(horario:horario_id(horario)),
           estado
         `)
-        .eq("estado", "APROBADO");
+        .eq("estado", "APROBADA");
 
       if (error) {
         console.error("Error al obtener datos:", error);
