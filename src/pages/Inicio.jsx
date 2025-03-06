@@ -11,7 +11,7 @@ export default function Inicio({ setCorreo }) {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    const emailRegex = /^[^\s@]+@unitec\.edu$/;
+    const emailRegex = /^[^\s@]+@gmail\.com$/;
     if (!emailRegex.test(email)) {
       setAlertMessage("Por favor, ingresa un correo institucional válido.");
       setIsOpen(true);

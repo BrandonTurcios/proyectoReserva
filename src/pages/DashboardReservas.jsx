@@ -76,23 +76,30 @@ export default function DashboardReservas() {
 
   async function enviarCorreo(destinatario, asunto, cuerpo) {
     try {
-      const response = await fetch("http://localhost:5000/enviar-correo", {
+      const response = await fetch(import.meta.env.VITE_POWERAPPS_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ destinatario, asunto, cuerpo }),
+        body: JSON.stringify({
+          destinatario: destinatario,
+          asunto: asunto,
+          cuerpo: cuerpo,
+        }),
       });
-
+  
       if (response.ok) {
-        console.log("Correo enviado correctamente");
+        console.log("Correo enviado correctamente a:", destinatario);
       } else {
-        console.error("Error al enviar el correo");
+        const errorData = await response.json(); // Lee la respuesta del servidor
+        console.error("Error al enviar el correo a:", destinatario, errorData);
       }
     } catch (error) {
-      console.error("Error en la solicitud:", error);
+      console.error("Error en la solicitud a:", destinatario, error);
     }
   }
+  
+  
 
   async function actualizarEstadoGrupo(ids, nuevoEstado, grupo) {
     if (nuevoEstado === "APROBADA") {
@@ -112,17 +119,55 @@ export default function DashboardReservas() {
         }
       }
   
+      // Formatear fechas en el formato "05 de marzo de 2025"
+      const fechasFormateadas = grupo.fechas
+        .map((fecha) => {
+          return new Date(fecha).toLocaleDateString("es-ES", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          });
+        })
+        .join(", "); // Une las fechas con comas
+  
       // Enviar correo electrónico al usuario que hizo la reserva
       const destinatario = grupo.correos.split(", ")[0]; // Tomamos el primer correo
-      const cuerpoCorreo = `Reserva aprobada:
-        Laboratorio: ${grupo.laboratorios?.nombre}
-        Fecha: ${fecha}
-        Horario: ${horario}
-        Motivo: ${grupo.motivo_uso}
-        Usuarios: ${grupo.nombresUsuarios}
-        Correos: ${grupo.correos}`;
+      const cuerpoCorreo = `Buen día, por este medio se le notifica que la siguiente reserva ha sido aprobada: <br>
+        Laboratorio: ${grupo.laboratorios?.nombre}<br>
+        Fecha: ${fechasFormateadas}<br>
+        Horario: ${grupo.horarios}<br>
+        Motivo: ${grupo.motivo_uso}<br>`;
   
-      enviarCorreo(destinatario, "Reserva Aprobada", cuerpoCorreo);
+      await enviarCorreo(destinatario, "Reserva Aprobada", cuerpoCorreo);
+  
+      // Enviar correo electrónico al correo estático (AIRE AC)
+      const destinatarioAC = import.meta.env.VITE_CORREO_AC; // CORREO AIRE AC
+      const cuerpoCorreoAC = `Se ha creado una nueva solicitud de reserva para el laboratorio de ${grupo.laboratorios?.nombre} por el ${grupo.tiposUsuarios}
+        ${grupo.nombresUsuarios}. La reserva es en la fecha: ${fechasFormateadas} con un horario comprendido de ${grupo.horarios}.`;
+      const asuntoAC = `Solicitud de reserva de ${grupo.laboratorios?.nombre}`;
+  
+      await enviarCorreo(destinatarioAC, asuntoAC, cuerpoCorreoAC);
+    } else if (nuevoEstado === "RECHAZADA") {
+      // Formatear fechas en el formato "05 de marzo de 2025"
+      const fechasFormateadas = grupo.fechas
+        .map((fecha) => {
+          return new Date(fecha).toLocaleDateString("es-ES", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          });
+        })
+        .join(", "); // Une las fechas con comas
+  
+      // Enviar correo electrónico al usuario que hizo la reserva
+      const destinatario = grupo.correos.split(", ")[0]; // Tomamos el primer correo
+      const cuerpoCorreo = `Buen día, por este medio se le notifica que la siguiente reserva ha sido rechazada: <br>
+        Laboratorio: ${grupo.laboratorios?.nombre}<br>
+        Fecha: ${fechasFormateadas}<br>
+        Horario: ${grupo.horarios}<br>
+        Motivo: ${grupo.motivo_uso}<br>`;
+  
+      await enviarCorreo(destinatario, "Reserva Rechazada", cuerpoCorreo);
     }
   
     const { error } = await supabase
@@ -294,13 +339,13 @@ export default function DashboardReservas() {
                             onClick={() => actualizarEstadoGrupo(grupo.ids, "APROBADA", grupo)}
                             className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition"
                           >
-                            Aceptar
+                            ✓
                           </button>
                           <button
                             onClick={() => actualizarEstadoGrupo(grupo.ids, "RECHAZADA", grupo)}
                             className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition"
                           >
-                            Rechazar
+                            ✗
                           </button>
                         </>
                       )}
