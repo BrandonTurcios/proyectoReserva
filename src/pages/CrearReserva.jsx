@@ -8,7 +8,7 @@ export default function CrearReserva() {
   const [laboratorios, setLaboratorios] = useState([]);
   const [horarios, setHorarios] = useState([]);
   const [perfil, setPerfil] = useState("");
-  const [cantidadUsuarios, setCantidadUsuarios] = useState(1);
+  const [cantidadUsuarios, setCantidadUsuarios] = useState(0);
   const [integrantes, setIntegrantes] = useState([]);
   const [horariosSeleccionados, setHorariosSeleccionados] = useState([]);
   const [motivoUso, setMotivoUso] = useState("");
@@ -66,7 +66,7 @@ export default function CrearReserva() {
     setHabilitado(e.target.value !== "");
 
     if (selectedPerfil === "Estudiante") {
-      setCantidadUsuarios(1);
+      setCantidadUsuarios(0);
     } 
 
     setIntegrantes([]);
@@ -90,11 +90,13 @@ export default function CrearReserva() {
   const handleCantidadChange = (e) => {
     const value = parseInt(e.target.value, 10);
     setCantidadUsuarios(value);
+    // Solo generar integrantes adicionales si la cantidad es mayor que 0
     setIntegrantes(
-      Array(value).fill({ nombre: "", numero_cuenta: "", correo: "" })
+      value > 0
+        ? Array(value).fill({ nombre: "", numero_cuenta: "", correo: "" })
+        : []
     );
   };
-
   const handleIntegranteChange = (index, field, value) => {
     const updatedIntegrantes = [...integrantes];
     updatedIntegrantes[index][field] = value;
@@ -106,175 +108,180 @@ export default function CrearReserva() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+  
     if (perfil === "Estudiante" && horariosSeleccionados.length > 2) {
-        setError("Los estudiantes solo pueden seleccionar hasta 2 horarios.");
-        return;
+      setError("Los estudiantes solo pueden seleccionar hasta 2 horarios.");
+      return;
     }
-
+  
     try {
-        const { data: usuarioData, error: usuarioError } = await supabase
-            .from("usuarios")
-            .insert(
-                [
-                    {
-                        nombre: nombre,
-                        numero_cuenta: numeroCuenta,
-                        correo: correo,
-                        tipo_usuario: perfil,
-                    },
-                ],
-                { returning: "minimal" }
-            )
-            .select();
-
-        if (usuarioError) {
-            console.error("Error al insertar usuario:", usuarioError);
-            throw new Error("Error al insertar usuario");
-        }
-
-        if (!usuarioData || usuarioData.length === 0) {
-            throw new Error("No se pudo insertar el usuario o la respuesta está vacía");
-        }
-
-        const usuarioId = usuarioData[0].id;
-        let diasReservaciones = [];
-
-
-        const diasSeleccionadosIndices = diasSeleccionados.map((dia) => {
-          const mapping = {
-              "Lunes": 0,
-              "Martes": 1,
-              "Miércoles": 2,
-              "Jueves": 3,
-              "Viernes": 4,
-              "Sábado": 5,
-              "Domingo": 6,
-          };
-          return mapping[dia];
+      // Insertar el usuario principal
+      const { data: usuarioData, error: usuarioError } = await supabase
+        .from("usuarios")
+        .insert([
+          {
+            nombre: nombre,
+            numero_cuenta: numeroCuenta,
+            correo: correo,
+            tipo_usuario: perfil,
+          },
+        ])
+        .select();
+  
+      if (usuarioError) {
+        console.error("Error al insertar usuario:", usuarioError);
+        throw new Error("Error al insertar usuario");
+      }
+  
+      if (!usuarioData || usuarioData.length === 0) {
+        throw new Error("No se pudo insertar el usuario o la respuesta está vacía");
+      }
+  
+      const usuarioId = usuarioData[0].id;
+      let diasReservaciones = [];
+  
+      const diasSeleccionadosIndices = diasSeleccionados.map((dia) => {
+        const mapping = {
+          Lunes: 0,
+          Martes: 1,
+          Miércoles: 2,
+          Jueves: 3,
+          Viernes: 4,
+          Sábado: 5,
+          Domingo: 6,
+        };
+        return mapping[dia];
       });
-
-        if (fechaReservacion) {
-            diasReservaciones.push(fechaReservacion);
-        } else {
-            let fechaActual = new Date(fechaInicio);
-            const fechaFinal = new Date(fechaFin);
-
-            while (fechaActual <= fechaFinal) {
-              const diaSemana = getDiaSemana(fechaActual);
-              if (diasSeleccionadosIndices.includes(diaSemana)) {
-                  diasReservaciones.push(fechaActual.toISOString().split("T")[0]);
-              }
-              fechaActual.setDate(fechaActual.getDate() + 1);
+  
+      if (fechaReservacion) {
+        diasReservaciones.push(fechaReservacion);
+      } else {
+        let fechaActual = new Date(fechaInicio);
+        const fechaFinal = new Date(fechaFin);
+  
+        while (fechaActual <= fechaFinal) {
+          const diaSemana = getDiaSemana(fechaActual);
+          if (diasSeleccionadosIndices.includes(diaSemana)) {
+            diasReservaciones.push(fechaActual.toISOString().split("T")[0]);
+          }
+          fechaActual.setDate(fechaActual.getDate() + 1);
+        }
+      }
+  
+      for (const fecha of diasReservaciones) {
+        const { data: reservasFecha, error: errorReservasFecha } = await supabase
+          .from("reservaciones")
+          .select("id")
+          .eq("fecha", fecha)
+          .eq("laboratorio_id", laboratorioId);
+  
+        if (errorReservasFecha) {
+          console.error("Error al obtener reservas por fecha:", errorReservasFecha);
+          return;
+        }
+  
+        const reservasIds = reservasFecha.map((reserva) => reserva.id);
+  
+        for (const horarioId of horariosSeleccionados) {
+          const { count: reservasEnHorario, error: errorConsulta } = await supabase
+            .from("reservaciones_horarios")
+            .select("id", { count: "exact" })
+            .in("reservacion_id", reservasIds)
+            .eq("horario_id", horarioId);
+  
+          if (errorConsulta) {
+            console.error("Error al consultar reservas en horario:", errorConsulta);
+            return;
+          }
+  
+          if (reservasEnHorario >= 2) {
+            setError(`No se puede reservar, ya hay 20 reservas en el horario ${horarioId}.`);
+            return;
           }
         }
-
-        for (const fecha of diasReservaciones) {
-            const { data: reservasFecha, error: errorReservasFecha } = await supabase
-                .from("reservaciones")
-                .select("id")
-                .eq("fecha", fecha)
-                .eq("laboratorio_id", laboratorioId);
-
-            if (errorReservasFecha) {
-                console.error("Error al obtener reservas por fecha:", errorReservasFecha);
-                return;
-            }
-
-            const reservasIds = reservasFecha.map((reserva) => reserva.id);
-
-            for (const horarioId of horariosSeleccionados) {
-                
-                const { count: reservasEnHorario, error: errorConsulta } = await supabase
-                    .from("reservaciones_horarios")
-                    .select("id", { count: "exact" })
-                    .in("reservacion_id", reservasIds)
-                    .eq("horario_id", horarioId);
-
-                if (errorConsulta) {
-                    console.error("Error al consultar reservas en horario:", errorConsulta);
-                    return;
-                }
-                //çççççççççççççççççççççççççççççççççççççççççççççççççççççççççççççççççççççççççççççççççççççççç
-                if (reservasEnHorario >= 2) {
-                    setError(`No se puede reservar, ya hay 20 reservas en el horario ${horarioId}.`);
-                    return;
-                }
-            }
-
-            const { data: reservacionData, error: reservacionError } = await supabase
-                .from("reservaciones")
-                .insert({
-                    motivo_uso: motivoUso,
-                    cantidad_usuarios: cantidadUsuarios,
-                    fecha: fecha,
-                    dias_repeticion: diasSeleccionados.join(", "),
-                    laboratorio_id: laboratorioId,
-                })
-                .select();
-
-            if (reservacionError) {
-                console.error("Error al insertar reserva:", reservacionError);
-                return;
-            }
-
-            if (!reservacionData || reservacionData.length === 0) {
-                console.error("No se pudo insertar la reserva o la respuesta está vacía");
-                return;
-            }
-
-            const reservacionId = reservacionData[0].id;
-
-            const horariosInsert = horariosSeleccionados.map((horarioId) => ({
-                reservacion_id: reservacionId,
-                horario_id: horarioId,
-            }));
-
-            await supabase.from("reservaciones_horarios").insert(horariosInsert);
-
-            const usuariosInsert = [{ reservacion_id: reservacionId, usuario_id: usuarioId }];
-
-            for (const integrante of integrantes) {
-                const integranteData = await supabase
-                    .from("usuarios")
-                    .insert({
-                        nombre: integrante.nombre,
-                        correo: integrante.correo,
-                        numero_cuenta: integrante.numero_cuenta,
-                        tipo_usuario: "Estudiante",
-                    })
-                    .select();
-
-                if (!integranteData) throw new Error("Error al insertar integrante");
-
-                usuariosInsert.push({
-                    reservacion_id: reservacionId,
-                    usuario_id: integranteData[0].id,
-                });
-            }
-
-            await supabase.from("reservaciones_usuarios").insert(usuariosInsert);
+  
+        const { data: reservacionData, error: reservacionError } = await supabase
+          .from("reservaciones")
+          .insert({
+            motivo_uso: motivoUso,
+            cantidad_usuarios: cantidadUsuarios + 1, // +1 para incluir al usuario principal
+            fecha: fecha,
+            dias_repeticion: diasSeleccionados.join(", "),
+            laboratorio_id: laboratorioId,
+          })
+          .select();
+  
+        if (reservacionError) {
+          console.error("Error al insertar reserva:", reservacionError);
+          return;
         }
-
-        setShowPopup(true);
-        setTimeout(() => setShowPopup(false), 2000);
-
-        setPerfil("");
-        setCantidadUsuarios(1);
-        setIntegrantes([]);
-        setHorariosSeleccionados([]);
-        setMotivoUso("");
-        setNombre("");
-        setNumeroCuenta("");
-        setDiasSeleccionados([]);
-        setFechaInicio("");
-        setFechaFin("");
-        setLaboratorioId(0);
+  
+        if (!reservacionData || reservacionData.length === 0) {
+          console.error("No se pudo insertar la reserva o la respuesta está vacía");
+          return;
+        }
+  
+        const reservacionId = reservacionData[0].id;
+  
+        const horariosInsert = horariosSeleccionados.map((horarioId) => ({
+          reservacion_id: reservacionId,
+          horario_id: horarioId,
+        }));
+  
+        await supabase.from("reservaciones_horarios").insert(horariosInsert);
+  
+        const usuariosInsert = [{ reservacion_id: reservacionId, usuario_id: usuarioId }];
+  
+        // Insertar integrantes solo si hay integrantes adicionales
+        if (cantidadUsuarios > 0) {
+          for (const integrante of integrantes) {
+            const { data: integranteData, error: integranteError } = await supabase
+              .from("usuarios")
+              .insert({
+                nombre: integrante.nombre,
+                correo: integrante.correo,
+                numero_cuenta: integrante.numero_cuenta,
+                tipo_usuario: "Estudiante",
+              })
+              .select();
+  
+            if (integranteError) {
+              console.error("Error al insertar integrante:", integranteError);
+              throw new Error("Error al insertar integrante");
+            }
+  
+            if (!integranteData || integranteData.length === 0) {
+              throw new Error("No se pudo insertar el integrante o la respuesta está vacía");
+            }
+  
+            usuariosInsert.push({
+              reservacion_id: reservacionId,
+              usuario_id: integranteData[0].id,
+            });
+          }
+        }
+  
+        await supabase.from("reservaciones_usuarios").insert(usuariosInsert);
+      }
+  
+      setShowPopup(true);
+      setTimeout(() => setShowPopup(false), 2000);
+  
+      setPerfil("");
+      setCantidadUsuarios(0); // Reiniciar a 0 para permitir reservas sin integrantes
+      setIntegrantes([]);
+      setHorariosSeleccionados([]);
+      setMotivoUso("");
+      setNombre("");
+      setNumeroCuenta("");
+      setDiasSeleccionados([]);
+      setFechaInicio("");
+      setFechaFin("");
+      setLaboratorioId(0);
     } catch (error) {
-        console.error("Error al crear la reserva:", error);
+      console.error("Error al crear la reserva:", error);
     }
-};
-
+  };
 
   return (
     <div className="relative flex flex-col justify-center items-center h-full min-h-screen bg-[#06065c]">
@@ -374,54 +381,53 @@ export default function CrearReserva() {
           </div>
 
           {perfil === "Estudiante" && (
-            <div>
-              <label className="block font-medium text-gray-700 ">
-                Cantidad de integrantes
-              </label>
-              <input
-                type="number"
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                value={cantidadUsuarios}
-                required
-                onChange={handleCantidadChange}
-                max={19}
-                min={1}
-                
-              />
-              {integrantes.map((_, index) => (
-                <div key={index} className="flex flex-wrap gap-2 mt-2">
-                  <input
-                    type="text"
-                    placeholder={`Nombre del integrante ${index + 1}`}
-                    className="w-full sm:w-auto flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
-                    onChange={(e) =>
-                      handleIntegranteChange(index, "nombre", e.target.value)
-                    }
-                  />
-                  <input
-                    type="text"
-                    placeholder="Número de cuenta"
-                    className="w-full sm:w-auto flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
-                    onChange={(e) =>
-                      handleIntegranteChange(
-                        index,
-                        "numero_cuenta",
-                        e.target.value
-                      )
-                    }
-                  />
-                  <input
-                    type="email"
-                    placeholder="Correo electrónico"
-                    className="w-full sm:w-auto flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
-                    onChange={(e) =>
-                      handleIntegranteChange(index, "correo", e.target.value)
-                    }
-                  />
-                </div>
-              ))}
-            </div>
-          )}
+  <div>
+    <label className="block font-medium text-gray-700">
+      Cantidad de integrantes adicionales
+    </label>
+    <input
+      type="number"
+      className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+      value={cantidadUsuarios}
+      required
+      onChange={handleCantidadChange}
+      min={0} // Permitir 0 como valor mínimo
+      max={19}
+    />
+    {cantidadUsuarios > 0 && (
+      <>
+        {integrantes.map((_, index) => (
+          <div key={index} className="flex flex-wrap gap-2 mt-2">
+            <input
+              type="text"
+              placeholder={`Nombre del integrante ${index + 1}`}
+              className="w-full sm:w-auto flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
+              onChange={(e) =>
+                handleIntegranteChange(index, "nombre", e.target.value)
+              }
+            />
+            <input
+              type="text"
+              placeholder="Número de cuenta"
+              className="w-full sm:w-auto flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
+              onChange={(e) =>
+                handleIntegranteChange(index, "numero_cuenta", e.target.value)
+              }
+            />
+            <input
+              type="email"
+              placeholder="Correo electrónico"
+              className="w-full sm:w-auto flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
+              onChange={(e) =>
+                handleIntegranteChange(index, "correo", e.target.value)
+              }
+            />
+          </div>
+        ))}
+      </>
+    )}
+  </div>
+)}
      
           <div>
             <label className="block font-medium text-gray-700">
