@@ -28,7 +28,7 @@ export default function DashboardReservas() {
         "reservaciones_usuarios(usuario_id, usuarios(correo, nombre, tipo_usuario)), " +
         "reservaciones_horarios(horarios(horario))"
       )
-      .order("id", { ascending: true });
+      .order("id", { ascending: false });
 
     if (error) {
       console.error("Error al obtener reservas:", error);
@@ -142,7 +142,7 @@ export default function DashboardReservas() {
   
       // Enviar correo electrónico al correo estático (AIRE AC)
       const destinatarioAC = import.meta.env.VITE_CORREO_AC; // CORREO AIRE AC
-      const cuerpoCorreoAC = `Se ha creado una nueva solicitud de reserva para el laboratorio de ${grupo.laboratorios?.nombre} por el ${grupo.tiposUsuarios}
+      const cuerpoCorreoAC = `Se ha aprobado una nueva solicitud de reserva para el laboratorio de ${grupo.laboratorios?.nombre} por el ${grupo.tiposUsuarios}
         ${grupo.nombresUsuarios}. La reserva es en la fecha: ${fechasFormateadas} con un horario comprendido de ${grupo.horarios}.`;
       const asuntoAC = `Solicitud de reserva de ${grupo.laboratorios?.nombre}`;
   
@@ -188,30 +188,30 @@ export default function DashboardReservas() {
       const correos =
         reserva.reservaciones_usuarios
           ?.map((ru) => ru.usuarios?.correo)
-          .filter(Boolean)
+          .filter(correo => correo && correo.trim() !== "") // Filtra correos vacíos o con solo espacios
           .sort()
           .join(", ") || "N/A";
-
+  
       const tiposUsuarios =
         reserva.reservaciones_usuarios
           ?.map((ru) => ru.usuarios?.tipo_usuario)
           .filter(Boolean)
           .join(", ") || "N/A";
-
+  
       const nombresUsuarios =
         reserva.reservaciones_usuarios
           ?.map((ru) => ru.usuarios?.nombre)
           .filter(Boolean)
           .join(", ") || "Desconocido";
-
+  
       const horarios =
         reserva.reservaciones_horarios
           ?.map((rh) => rh.horarios?.horario)
           .filter(Boolean)
           .join(", ") || "No asignado";
-
+  
       const key = `${reserva.motivo_uso}-${correos}-${horarios}`;
-
+  
       if (!acc[key]) {
         acc[key] = {
           ...reserva,
@@ -228,7 +228,7 @@ export default function DashboardReservas() {
       }
       return acc;
     }, {});
-
+  
     setReservasAgrupadas(Object.values(agrupadas));
   }
 
@@ -298,89 +298,95 @@ export default function DashboardReservas() {
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full bg-white shadow-lg rounded-lg border border-gray-300">
-          <thead>
-            <tr className="bg-blue-600 text-white text-left">
-              <th className="px-6 py-3 border-b">Nombre</th>
-              <th className="px-6 py-3 border-b">Tipo</th>
-              <th className="px-6 py-3 border-b">Laboratorio</th>
-              <th className="px-6 py-3 border-b">Motivo</th>
-              <th className="px-6 py-3 border-b">Correos</th>
-              <th className="px-6 py-3 border-b">Horarios</th>
-              <th className="px-6 py-3 border-b">Estado</th>
-              <th className="px-6 py-3 border-b">Acciones</th>
+      <div className="overflow-x-auto w-full">
+  <table className="w-full bg-white shadow-lg rounded-lg border border-gray-300">
+    <thead>
+      <tr className="bg-blue-600 text-white text-left text-sm">
+        <th className="px-4 py-2 border-b whitespace-nowrap">Nombre</th>
+        <th className="px-4 py-2 border-b whitespace-nowrap">Tipo</th>
+        <th className="px-4 py-2 border-b whitespace-nowrap">Laboratorio</th>
+        <th className="px-4 py-2 border-b whitespace-nowrap">Motivo</th>
+        <th className="px-4 py-2 border-b whitespace-nowrap">Correos</th>
+        <th className="px-4 py-2 border-b whitespace-nowrap">Horarios</th>
+        <th className="px-4 py-2 border-b whitespace-nowrap">Estado</th>
+        <th className="px-4 py-2 border-b whitespace-nowrap">Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {reservasAgrupadas
+        .filter((grupo) =>
+          (estadoFiltro === "TODOS" || grupo.estado === estadoFiltro) &&
+          (tipoUsuarioFiltro === "TODOS" || grupo.tiposUsuarios.includes(tipoUsuarioFiltro)) &&
+          (laboratorioFiltro === "TODOS" || grupo.laboratorios?.nombre === laboratorioFiltro)
+        )
+        .map((grupo) => (
+          <React.Fragment key={grupo.ids.join("-")}>
+            <tr
+              className="border-t hover:bg-gray-200 transition-colors cursor-pointer text-sm"
+              onClick={() => toggleReserva(grupo)}
+            >
+              <td className="px-4 py-2">{grupo.nombresUsuarios}</td>
+              <td className="px-4 py-2">{grupo.tiposUsuarios}</td>
+              <td className="px-4 py-2">{grupo.laboratorios?.nombre || "N/A"}</td>
+              <td className="px-4 py-2">{grupo.motivo_uso}</td>
+              <td className="px-4 py-2">{grupo.correos}</td>
+              <td className="px-4 py-2">{grupo.horarios}</td>
+              <td className="px-4 py-2 font-semibold">{grupo.estado}</td>
+              <td className="px-4 py-2 flex space-x-2">
+                {grupo.estado === "EN_ESPERA" && (
+                  <>
+                    <button
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        actualizarEstadoGrupo(grupo.ids, "APROBADA", grupo);
+                      }}
+                      className="bg-green-500 text-white px-3 py-1 rounded-lg hover:bg-green-600 transition text-xs"
+                    >
+                      ✓
+                    </button>
+                    <button
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        actualizarEstadoGrupo(grupo.ids, "RECHAZADA", grupo);
+                      }}
+                      className="bg-red-500 text-white px-3 py-1 rounded-lg hover:bg-red-600 transition text-xs"
+                    >
+                      ✗
+                    </button>
+                  </>
+                )}
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {reservasAgrupadas
-              .filter((grupo) =>
-                (estadoFiltro === "TODOS" || grupo.estado === estadoFiltro) &&
-                (tipoUsuarioFiltro === "TODOS" || grupo.tiposUsuarios.includes(tipoUsuarioFiltro)) &&
-                (laboratorioFiltro === "TODOS" || grupo.laboratorios?.nombre === laboratorioFiltro)
-              )
-              .map((grupo) => (
-                <React.Fragment key={grupo.ids.join("-")}>
-                  <tr
-                    className="border-t hover:bg-gray-200 transition-colors cursor-pointer"
-                    onClick={() => toggleReserva(grupo)}
-                  >
-                    <td className="px-6 py-4">{grupo.nombresUsuarios}</td>
-                    <td className="px-6 py-4">{grupo.tiposUsuarios}</td>
-                    <td className="px-6 py-4">{grupo.laboratorios?.nombre || "N/A"}</td>
-                    <td className="px-6 py-4">{grupo.motivo_uso}</td>
-                    <td className="px-6 py-4">{grupo.correos}</td>
-                    <td className="px-6 py-4">{grupo.horarios}</td>
-                    <td className="px-6 py-4 font-semibold">{grupo.estado}</td>
-                    <td className="px-6 py-4 flex space-x-2">
-                      {grupo.estado === "EN_ESPERA" && (
-                        <>
-                          <button
-                            onClick={() => actualizarEstadoGrupo(grupo.ids, "APROBADA", grupo)}
-                            className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition"
-                          >
-                            ✓
-                          </button>
-                          <button
-                            onClick={() => actualizarEstadoGrupo(grupo.ids, "RECHAZADA", grupo)}
-                            className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition"
-                          >
-                            ✗
-                          </button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                  {reservaExpandida === grupo && (
-                    <tr className="bg-gray-50">
-                      <td colSpan="8" className="px-6 py-4">
-                        <strong>Fechas:</strong>
-                        <div className="flex justify-center items-center mt-4">
-                          <Calendar
-                            key={reservaExpandida ? reservaExpandida.id : "default"}
-                            value={fechaInicialCalendario}
-                            locale="es"
-                            tileClassName={({ date }) => {
-                              const isMarked = fechasMarcadas.some(
-                                (f) =>
-                                  f instanceof Date &&
-                                  f.toDateString() === date.toDateString()
-                              );
-                              return isMarked
-                                ? "!bg-blue-500 text-white font-bold rounded-full opacity-80"
-                                : "";
-                            }}
-                            onClickDay={(date) => console.log("Fecha seleccionada:", date)}
-                          />
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              ))}
-          </tbody>
-        </table>
-      </div>
+            {reservaExpandida === grupo && (
+              <tr className="bg-gray-50">
+                <td colSpan="8" className="px-3 py-3">
+
+                  <div className="flex justify-center items-center mt-2">
+                    <Calendar
+                      key={reservaExpandida ? reservaExpandida.id : "default"}
+                      value={fechaInicialCalendario}
+                      locale="es"
+                      tileClassName={({ date }) => {
+                        const isMarked = fechasMarcadas.some(
+                          (f) =>
+                            f instanceof Date && f.toDateString() === date.toDateString()
+                        );
+                        return isMarked
+                          ? "!bg-blue-500 text-white font-bold rounded-full opacity-80"
+                          : "";
+                      }}
+                      onClickDay={(date) => console.log("Fecha seleccionada:", date)}
+                    />
+                  </div>
+                </td>
+              </tr>
+            )}
+          </React.Fragment>
+        ))}
+    </tbody>
+  </table>
+</div>
+
     </div>
   );
 }

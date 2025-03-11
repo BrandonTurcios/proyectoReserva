@@ -93,7 +93,7 @@ export default function CrearReserva() {
     // Solo generar integrantes adicionales si la cantidad es mayor que 0
     setIntegrantes(
       value > 0
-        ? Array(value).fill({ nombre: "", numero_cuenta: "", correo: "" })
+        ? Array(value).fill({ nombre: "", numero_cuenta: ""})
         : []
     );
   };
@@ -239,7 +239,7 @@ export default function CrearReserva() {
               .from("usuarios")
               .insert({
                 nombre: integrante.nombre,
-                correo: integrante.correo,
+                correo: " ",
                 numero_cuenta: integrante.numero_cuenta,
                 tipo_usuario: "Estudiante",
               })
@@ -414,14 +414,7 @@ export default function CrearReserva() {
                 handleIntegranteChange(index, "numero_cuenta", e.target.value)
               }
             />
-            <input
-              type="email"
-              placeholder="Correo electrónico"
-              className="w-full sm:w-auto flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
-              onChange={(e) =>
-                handleIntegranteChange(index, "correo", e.target.value)
-              }
-            />
+           
           </div>
         ))}
       </>

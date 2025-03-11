@@ -36,7 +36,39 @@ export default function MisReservas() {
 
         if (error) throw error;
 
-        setReservas(data || []);
+        // Agrupar reservas por motivo y nombre de laboratorio
+        const reservasAgrupadas = data.reduce((acc, item) => {
+          const reserva = item.reservaciones;
+          const clave = `${reserva.motivo_uso}-${reserva.laboratorios.nombre}`;
+
+          if (!acc[clave]) {
+            acc[clave] = {
+              motivo_uso: reserva.motivo_uso,
+              laboratorio: reserva.laboratorios.nombre,
+              estado: reserva.estado,
+              fechas: [],
+              horarios: [],
+            };
+          }
+
+          // Agregar fechas y horarios únicos
+          if (!acc[clave].fechas.includes(reserva.fecha)) {
+            acc[clave].fechas.push(reserva.fecha);
+          }
+
+          reserva.reservaciones_horarios.forEach((h) => {
+            if (!acc[clave].horarios.includes(h.horarios.horario)) {
+              acc[clave].horarios.push(h.horarios.horario);
+            }
+          });
+
+          return acc;
+        }, {});
+
+        // Convertir el objeto agrupado en un array
+        const reservasMapeadas = Object.values(reservasAgrupadas);
+
+        setReservas(reservasMapeadas);
       } catch (error) {
         console.error("Error obteniendo las reservas:", error);
       } finally {
@@ -48,13 +80,13 @@ export default function MisReservas() {
   }, []);
 
   const reservasFiltradas = reservas.filter(
-    (reserva) => reserva.reservaciones.estado === estadoFiltro
+    (reserva) => reserva.estado === estadoFiltro
   );
 
   return (
     <div className="relative flex flex-col justify-center items-center h-full min-h-screen bg-[#06065c]">
-    {/* Capa superior con forma recortada */}
-    <div className="absolute top-0 left-0 w-full h-1/2 bg-[#0f49b6] clip-custom z-0"></div>
+      {/* Capa superior con forma recortada */}
+      <div className="absolute top-0 left-0 w-full h-1/2 bg-[#0f49b6] clip-custom z-0"></div>
 
       <div className="relative max-w-3xl mx-auto p-8 bg-white shadow-2xl rounded-2xl z-10">
         <h2 className="text-3xl font-bold text-[#0f49b6] text-center mb-6">
@@ -80,57 +112,54 @@ export default function MisReservas() {
         {loading ? (
           <p className="text-center text-gray-600 text-lg">Cargando reservas...</p>
         ) : (
-          <div className="max-h-[500px] overflow-y-auto space-y-6"> {/* Ajustamos el alto máximo y agregamos scroll */}
+          <div className="max-h-[500px] overflow-y-auto space-y-6">
             {reservasFiltradas.length > 0 ? (
-              reservasFiltradas.map((reserva) => (
+              reservasFiltradas.map((reserva, index) => (
                 <div
-                  key={reserva.reservaciones.id}
+                  key={index}
                   className="p-6 bg-gray-100 rounded-xl shadow-md border-l-4 border-[#0f49b6]"
                 >
                   <h3 className="text-xl font-semibold text-[#0f49b6] capitalize">
-                    Motivo de uso: {reserva.reservaciones.motivo_uso}
+                    Motivo de uso: {reserva.motivo_uso}
                   </h3>
                   <h2
                     className={`text-lg font-semibold ${
-                      reserva.reservaciones.estado === "EN_ESPERA"
+                      reserva.estado === "EN_ESPERA"
                         ? "text-yellow-600"
-                        : reserva.reservaciones.estado === "APROBADA"
+                        : reserva.estado === "APROBADA"
                         ? "text-green-600"
                         : "text-red-600"
                     } capitalize`}
                   >
-                    Estado: {reserva.reservaciones.estado}
+                    Estado: {reserva.estado}
                   </h2>
 
                   <p className="text-gray-800 font-medium">
                     Laboratorio:{" "}
                     <span className="font-semibold text-black">
-                      {reserva.reservaciones.laboratorios.nombre}
+                      {reserva.laboratorio}
                     </span>
                   </p>
 
                   <p className="text-gray-800 font-medium">
-                    Fecha:{" "}
+                    Fechas:{" "}
                     <span className="font-semibold text-black">
-                      {reserva.reservaciones.fecha}
+                      {reserva.fechas.join(", ")}
                     </span>
                   </p>
 
                   <p className="text-gray-800 font-medium">Horarios:</p>
-                  {reserva.reservaciones.reservaciones_horarios.length > 1 ? (
+                  {reserva.horarios.length > 1 ? (
                     <ul className="list-disc list-inside mt-1 ml-6 text-black">
-                      {reserva.reservaciones.reservaciones_horarios.map(
-                        (h, index) => (
-                          <li key={index} className="font-semibold">
-                            {h.horarios.horario}
-                          </li>
-                        )
-                      )}
+                      {reserva.horarios.map((horario, index) => (
+                        <li key={index} className="font-semibold">
+                          {horario}
+                        </li>
+                      ))}
                     </ul>
                   ) : (
                     <span className="ml-2 font-semibold text-black">
-                      {reserva.reservaciones.reservaciones_horarios[0]?.horarios
-                        .horario}
+                      {reserva.horarios[0]}
                     </span>
                   )}
                 </div>
