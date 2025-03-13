@@ -23,6 +23,8 @@ export default function CrearReserva() {
   const [showPopup, setShowPopup] = useState(false);
   const [error, setError] = useState("");
   const [habilitado,setHabilitado] = useState(false);
+  const [esEstudiante, setEsEstudiante] = useState(false);
+  const [repetirDias, setRepetirDias] = useState(false);
 
   useEffect(() => {
     const emailFromStorage = localStorage.getItem("email");
@@ -53,6 +55,74 @@ export default function CrearReserva() {
     fetchData();
   }, []);
 
+  async function verificarLimiteReservas(laboratorioId, fecha, horarioId, tipoUsuario) {
+    // Obtener todas las reservas aprobadas para el laboratorio, fecha y horario específicos
+    const { data, error } = await supabase
+      .from("reservaciones")
+      .select(`
+        id,
+        reservaciones_horarios!inner (
+          horarios!inner (
+            horario
+          )
+        ),
+        reservaciones_usuarios!inner (
+          usuarios!inner (
+            tipo_usuario
+          )
+        )
+      `)
+      .eq("laboratorio_id", laboratorioId)
+      .eq("fecha", fecha)
+      .eq("estado", "APROBADA")
+      .eq("reservaciones_horarios.horarios.id", horarioId);
+  
+    if (error) {
+      console.error("Error al verificar el límite de reservas:", error);
+      return { limiteExcedido: false, mensaje: "" };
+    }
+  
+    // Contar reservas de alumnos y docentes
+    let reservasAlumnos = 0;
+    let reservasDocentes = 0;
+    let reservasAdministrativo = 0;
+  
+    data.forEach((reserva) => {
+      const tipoUsuarioReserva = reserva.reservaciones_usuarios[0]?.usuarios?.tipo_usuario;
+      if (tipoUsuarioReserva === "Estudiante") {
+        reservasAlumnos++;
+      } else if (tipoUsuarioReserva === "Docente") {
+        reservasDocentes++;
+      }
+      else if (tipoUsuarioReserva === "Administrativo") {
+        reservasAdministrativo++;
+      }
+    });
+  
+    // Verificar límites
+    if (reservasAlumnos >= 20) {
+      return {
+        limiteExcedido: true,
+        mensaje: "Ya hay 20 reservas de alumnos aprobadas para este horario y laboratorio.",
+      };
+    }
+  
+    if (reservasDocentes >= 1) {
+      return {
+        limiteExcedido: true,
+        mensaje: "Ya hay una reserva de docente aprobada para este horario y laboratorio.",
+      };
+    }
+    if (reservasAdministrativo >= 1) {
+      return {
+        limiteExcedido: true,
+        mensaje: "Ya hay una reserva de personal administrativo aprobada para este horario y laboratorio.",
+      };
+    }
+  
+    return { limiteExcedido: false, mensaje: "" }; // No se ha alcanzado ningún límite
+  }
+
   const handleDiasChange = (e) => {
     const { value, checked } = e.target;
     setDiasSeleccionados((prev) =>
@@ -63,6 +133,7 @@ export default function CrearReserva() {
   const handlePerfilChange = (e) => {
     const selectedPerfil = e.target.value;
     setPerfil(selectedPerfil);
+    setEsEstudiante(selectedPerfil === "Estudiante")
     setHabilitado(e.target.value !== "");
 
     if (selectedPerfil === "Estudiante") {
@@ -115,6 +186,60 @@ export default function CrearReserva() {
     }
   
     try {
+      // Declarar diasReservaciones aquí, antes de usarla
+      let diasReservaciones = [];
+  
+      // Obtener las fechas de reservación
+      if (esEstudiante || !repetirDias) {
+        if (!fechaReservacion) {
+          setError("Debes seleccionar una fecha de reservación.");
+          return;
+        }
+        diasReservaciones.push(fechaReservacion);
+      } else {
+        // Si no es estudiante, usar fechaInicio y fechaFin
+        const diasSeleccionadosIndices = diasSeleccionados.map((dia) => {
+          const mapping = {
+            Lunes: 0,
+            Martes: 1,
+            Miércoles: 2,
+            Jueves: 3,
+            Viernes: 4,
+            Sábado: 5,
+            Domingo: 6,
+          };
+          return mapping[dia];
+        });
+  
+        let fechaActual = new Date(fechaInicio);
+        const fechaFinal = new Date(fechaFin);
+  
+        while (fechaActual <= fechaFinal) {
+          const diaSemana = getDiaSemana(fechaActual);
+          if (diasSeleccionadosIndices.includes(diaSemana)) {
+            diasReservaciones.push(fechaActual.toISOString().split("T")[0]);
+          }
+          fechaActual.setDate(fechaActual.getDate() + 1);
+        }
+      }
+  
+      // Verificar límites para cada fecha y horario seleccionado
+      for (const fecha of diasReservaciones) {
+        for (const horarioId of horariosSeleccionados) {
+          const { limiteExcedido, mensaje } = await verificarLimiteReservas(
+            laboratorioId,
+            fecha,
+            horarioId,
+            perfil
+          );
+  
+          if (limiteExcedido) {
+            setError(mensaje);
+            return; // No permitir la creación de la reserva
+          }
+        }
+      }
+  
       // Insertar el usuario principal
       const { data: usuarioData, error: usuarioError } = await supabase
         .from("usuarios")
@@ -138,68 +263,9 @@ export default function CrearReserva() {
       }
   
       const usuarioId = usuarioData[0].id;
-      let diasReservaciones = [];
   
-      const diasSeleccionadosIndices = diasSeleccionados.map((dia) => {
-        const mapping = {
-          Lunes: 0,
-          Martes: 1,
-          Miércoles: 2,
-          Jueves: 3,
-          Viernes: 4,
-          Sábado: 5,
-          Domingo: 6,
-        };
-        return mapping[dia];
-      });
-  
-      if (fechaReservacion) {
-        diasReservaciones.push(fechaReservacion);
-      } else {
-        let fechaActual = new Date(fechaInicio);
-        const fechaFinal = new Date(fechaFin);
-  
-        while (fechaActual <= fechaFinal) {
-          const diaSemana = getDiaSemana(fechaActual);
-          if (diasSeleccionadosIndices.includes(diaSemana)) {
-            diasReservaciones.push(fechaActual.toISOString().split("T")[0]);
-          }
-          fechaActual.setDate(fechaActual.getDate() + 1);
-        }
-      }
-  
+      // Crear la reserva
       for (const fecha of diasReservaciones) {
-        const { data: reservasFecha, error: errorReservasFecha } = await supabase
-          .from("reservaciones")
-          .select("id")
-          .eq("fecha", fecha)
-          .eq("laboratorio_id", laboratorioId);
-  
-        if (errorReservasFecha) {
-          console.error("Error al obtener reservas por fecha:", errorReservasFecha);
-          return;
-        }
-  
-        const reservasIds = reservasFecha.map((reserva) => reserva.id);
-  
-        for (const horarioId of horariosSeleccionados) {
-          const { count: reservasEnHorario, error: errorConsulta } = await supabase
-            .from("reservaciones_horarios")
-            .select("id", { count: "exact" })
-            .in("reservacion_id", reservasIds)
-            .eq("horario_id", horarioId);
-  
-          if (errorConsulta) {
-            console.error("Error al consultar reservas en horario:", errorConsulta);
-            return;
-          }
-  
-          if (reservasEnHorario >= 2) {
-            setError(`No se puede reservar, ya hay 20 reservas en el horario ${horarioId}.`);
-            return;
-          }
-        }
-  
         const { data: reservacionData, error: reservacionError } = await supabase
           .from("reservaciones")
           .insert({
@@ -268,7 +334,7 @@ export default function CrearReserva() {
       setTimeout(() => setShowPopup(false), 2000);
   
       setPerfil("");
-      setCantidadUsuarios(0); // Reiniciar a 0 para permitir reservas sin integrantes
+      setCantidadUsuarios(0);
       setIntegrantes([]);
       setHorariosSeleccionados([]);
       setMotivoUso("");
@@ -422,6 +488,21 @@ export default function CrearReserva() {
   </div>
 )}
      
+     {!esEstudiante && ( // Mostrar solo si no es estudiante
+  <div>
+    <label className="block font-medium text-gray-700">
+      <input
+        type="checkbox"
+        checked={repetirDias}
+        onChange={(e) => setRepetirDias(e.target.checked)}
+        className="mr-2"
+      />
+      ¿Repetir días?
+    </label>
+  </div>
+)}
+  {!esEstudiante && repetirDias &&( // Mostrar solo si no es estudiante
+       <>
           <div>
             <label className="block font-medium text-gray-700">
               Días de Repetición
@@ -460,32 +541,36 @@ export default function CrearReserva() {
 
           </div>
           
-          <div>
-            <label className="block font-medium text-gray-700">
-              Fecha de Inicio
-            </label>
-            <input
-              type="date"
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-              value={fechaInicio}
-              onChange={(e) => setFechaInicio(e.target.value)}
-              disabled={!habilitado} 
-            />
-          </div>
+         
+ 
+    <div>
+      <label className="block font-medium text-gray-700">
+        Fecha de Inicio
+      </label>
+      <input
+        type="date"
+        className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+        value={fechaInicio}
+        onChange={(e) => setFechaInicio(e.target.value)}
+        disabled={!habilitado}
+      />
+    </div>
 
-          <div>
-            <label className="block font-medium text-gray-700">
-              Fecha de Finalización
-            </label>
-            <input
-              type="date"
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-              value={fechaFin}
-              disabled={!habilitado}
-              onChange={(e) => setFechaFin(e.target.value)}
-            />
-          </div>
-        
+    <div>
+      <label className="block font-medium text-gray-700">
+        Fecha de Finalización
+      </label>
+      <input
+        type="date"
+        className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+        value={fechaFin}
+        disabled={!habilitado}
+        onChange={(e) => setFechaFin(e.target.value)}
+      />
+    </div>
+  </>
+)}
+        {!repetirDias &&( 
           <div>
             <label className="block font-medium text-gray-700">
               Fecha de reservación
@@ -499,7 +584,7 @@ export default function CrearReserva() {
               onChange={(e) => setFechaReservacion(e.target.value)}
             />
           </div>
-        
+        )}
           <div>
             <div>
               <label className="block font-medium text-gray-700">Horario</label>
@@ -557,7 +642,9 @@ export default function CrearReserva() {
                 Tu reserva ha sido realizada con éxito.
               </p>
             </motion.div>
+           
           </div>
+          
         )}
       </div>
     </div>

@@ -14,6 +14,7 @@ export default function DashboardReservas() {
   const [fechasMarcadas, setFechasMarcadas] = useState([]);
   const [fechaInicialCalendario, setFechaInicialCalendario] = useState(new Date());
 
+  
   useEffect(() => {
     obtenerReservas();
     obtenerLaboratorios();
@@ -50,7 +51,8 @@ export default function DashboardReservas() {
     }
   }
 
-  async function verificarLimiteReservas(laboratorioId, fecha, horario) {
+  async function verificarLimiteReservas(laboratorioId, fecha, horario, tipoUsuario) {
+    // Obtener todas las reservas aprobadas para el laboratorio, fecha y horario específicos
     const { data, error } = await supabase
       .from("reservaciones")
       .select(`
@@ -59,19 +61,62 @@ export default function DashboardReservas() {
           horarios!inner (
             horario
           )
+        ),
+        reservaciones_usuarios!inner (
+          usuarios!inner (
+            tipo_usuario
+          )
         )
       `)
       .eq("laboratorio_id", laboratorioId)
       .eq("fecha", fecha)
       .eq("estado", "APROBADA")
-      .eq("reservaciones_horarios.horarios.horario", horario); // Usamos .eq en lugar de .contains
+      .eq("reservaciones_horarios.horarios.horario", horario);
   
     if (error) {
       console.error("Error al verificar el límite de reservas:", error);
-      return false;
+      return { limiteExcedido: false, mensaje: "" };
     }
   
-    return data.length >= 20;
+    // Contar reservas de alumnos y docentes
+    let reservasAlumnos = 0;
+    let reservasDocentes = 0;
+    let reservasAdministrativo=0;
+  
+    data.forEach((reserva) => {
+      const tipoUsuarioReserva = reserva.reservaciones_usuarios[0]?.usuarios?.tipo_usuario;
+      if (tipoUsuarioReserva === "Estudiante") {
+        reservasAlumnos++;
+      } else if (tipoUsuarioReserva === "Docente") {
+        reservasDocentes++;
+      }
+      else if (tipoUsuarioReserva === "Administrativo") {
+        reservasAdministrativo++;
+      }
+    });
+  
+    // Verificar límites
+    if (reservasAlumnos >= 20) {
+      return {
+        limiteExcedido: true,
+        mensaje: "Ya hay 20 reservas de alumnos aprobadas para este horario y laboratorio.",
+      };
+    }
+  
+    if (reservasDocentes >= 1) {
+      return {
+        limiteExcedido: true,
+        mensaje: "Ya hay una reserva de docente aprobada para este horario y laboratorio.",
+      };
+    }
+    if (reservasAdministrativo >= 1) {
+      return {
+        limiteExcedido: true,
+        mensaje: "Ya hay una reserva de personal administrativo aprobada para este horario y laboratorio.",
+      };
+    }
+  
+    return { limiteExcedido: false, mensaje: "" }; // No se ha alcanzado ningún límite
   }
 
   async function enviarCorreo(destinatario, asunto, cuerpo) {
@@ -106,20 +151,27 @@ export default function DashboardReservas() {
       const laboratorioId = grupo.laboratorio_id;
       const fecha = grupo.fechas[0].toISOString().split("T")[0];
       const horario = grupo.horarios.split(", ")[0];
+      const tipoUsuario = grupo.tiposUsuarios; // Tipo de usuario de la reserva
   
-      const limiteExcedido = await verificarLimiteReservas(laboratorioId, fecha, horario);
+      // Verificar si se excede el límite de reservas aprobadas
+      const { limiteExcedido, mensaje } = await verificarLimiteReservas(
+        laboratorioId,
+        fecha,
+        horario,
+        tipoUsuario
+      );
   
       if (limiteExcedido) {
         const confirmacion = window.confirm(
-          "Si aceptas esta reserva se pasará del límite de 20. ¿Deseas continuar? (si/no)"
+          `${mensaje}\n¿Desea autorizar esta reserva de todos modos?`
         );
   
         if (!confirmacion) {
-          return;
+          return; // No se aprueba la reserva
         }
       }
   
-      // Formatear fechas en el formato "05 de marzo de 2025"
+      // Continuar con la aprobación de la reserva
       const fechasFormateadas = grupo.fechas
         .map((fecha) => {
           return new Date(fecha).toLocaleDateString("es-ES", {
@@ -128,48 +180,29 @@ export default function DashboardReservas() {
             year: "numeric",
           });
         })
-        .join(", "); // Une las fechas con comas
+        .join(", ");
   
       // Enviar correo electrónico al usuario que hizo la reserva
-      const destinatario = grupo.correos.split(", ")[0]; // Tomamos el primer correo
+      const destinatario = grupo.correos.split(", ")[0];
       const cuerpoCorreo = `Buen día, por este medio se le notifica que la siguiente reserva ha sido aprobada: <br>
         Laboratorio: ${grupo.laboratorios?.nombre}<br>
         Fecha: ${fechasFormateadas}<br>
         Horario: ${grupo.horarios}<br>
         Motivo: ${grupo.motivo_uso}<br>`;
-  
+        
       await enviarCorreo(destinatario, "Reserva Aprobada", cuerpoCorreo);
   
       // Enviar correo electrónico al correo estático (AIRE AC)
-      const destinatarioAC = import.meta.env.VITE_CORREO_AC; // CORREO AIRE AC
+      const destinatarioAC = import.meta.env.VITE_CORREO_AC;
       const cuerpoCorreoAC = `Se ha aprobado una nueva solicitud de reserva para el laboratorio de ${grupo.laboratorios?.nombre} por el ${grupo.tiposUsuarios}
         ${grupo.nombresUsuarios}. La reserva es en la fecha: ${fechasFormateadas} con un horario comprendido de ${grupo.horarios}.`;
-      const asuntoAC = `Solicitud de reserva de ${grupo.laboratorios?.nombre}`;
-  
+      const asuntoAC = `Solicitud de reserva de ${grupo.laboratorios?.nombre}
+      `;
+        
       await enviarCorreo(destinatarioAC, asuntoAC, cuerpoCorreoAC);
-    } else if (nuevoEstado === "RECHAZADA") {
-      // Formatear fechas en el formato "05 de marzo de 2025"
-      const fechasFormateadas = grupo.fechas
-        .map((fecha) => {
-          return new Date(fecha).toLocaleDateString("es-ES", {
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-          });
-        })
-        .join(", "); // Une las fechas con comas
-  
-      // Enviar correo electrónico al usuario que hizo la reserva
-      const destinatario = grupo.correos.split(", ")[0]; // Tomamos el primer correo
-      const cuerpoCorreo = `Buen día, por este medio se le notifica que la siguiente reserva ha sido rechazada: <br>
-        Laboratorio: ${grupo.laboratorios?.nombre}<br>
-        Fecha: ${fechasFormateadas}<br>
-        Horario: ${grupo.horarios}<br>
-        Motivo: ${grupo.motivo_uso}<br>`;
-  
-      await enviarCorreo(destinatario, "Reserva Rechazada", cuerpoCorreo);
     }
   
+    // Actualizar el estado de la reserva en la base de datos
     const { error } = await supabase
       .from("reservaciones")
       .update({ estado: nuevoEstado })
