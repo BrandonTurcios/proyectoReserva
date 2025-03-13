@@ -6,6 +6,9 @@ export default function Inicio({ setCorreo }) {
   const [email, setEmail] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [alertMessage, setAlertMessage] = useState("");
+  const [showPasswordField, setShowPasswordField] = useState(false);
+  const [password, setPassword] = useState("");
+
   const navigate = useNavigate();
 
   const handleSubmit = (e) => {
@@ -18,12 +21,36 @@ export default function Inicio({ setCorreo }) {
       return;
     }
 
+    const emailADMIN = import.meta.env.VITE_ADMIN; // Correo del admin desde variables de entorno
+    if (email === emailADMIN) {
+      setShowPasswordField(true); // Mostrar campo de contraseña
+      return;
+    }
+
     // Guardar el correo en localStorage
     localStorage.setItem("email", email);
     setCorreo(email);
 
     // Redirigir al layout principal
     navigate("/");
+  };
+
+  const handlePasswordSubmit = (e) => {
+    e.preventDefault();
+
+    const correctPassword = import.meta.env.VITE_ADMIN_PASSWORD; // Contraseña desde variables de entorno
+
+    if (password === correctPassword) {
+      // Guardar el correo en localStorage
+      localStorage.setItem("email", email);
+      setCorreo(email);
+
+      // Redirigir a una página específica (no a la de inicio)
+      navigate("/admin"); // Cambia "/admin" por la ruta que desees
+    } else {
+      setAlertMessage("Contraseña incorrecta. Inténtalo de nuevo.");
+      setIsOpen(true);
+    }
   };
 
   const closeModal = () => {
@@ -46,7 +73,10 @@ export default function Inicio({ setCorreo }) {
         <p className="text-lg text-gray-600 text-center mb-6">
           Por favor, ingresa tu correo electrónico institucional para continuar.
         </p>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form
+          onSubmit={showPasswordField ? handlePasswordSubmit : handleSubmit}
+          className="space-y-4"
+        >
           <input
             type="email"
             value={email}
@@ -54,11 +84,20 @@ export default function Inicio({ setCorreo }) {
             placeholder="Correo electrónico"
             className="w-full p-3 border border-gray-300 text-lg rounded-lg focus:outline-none focus:ring-2 focus:ring-[#06065c]"
           />
+          {showPasswordField && (
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Contraseña"
+              className="w-full p-3 border border-gray-300 text-lg rounded-lg focus:outline-none focus:ring-2 focus:ring-[#06065c]"
+            />
+          )}
           <button
             type="submit"
             className="w-full bg-[#06065c] text-lg text-white py-3 rounded-lg hover:bg-[#0f49b6] transition-all duration-300"
           >
-            Continuar
+            {showPasswordField ? "Verificar Contraseña" : "Continuar"}
           </button>
         </form>
       </div>

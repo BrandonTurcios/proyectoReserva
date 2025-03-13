@@ -58,8 +58,11 @@ function App() {
             <Route path="crear-reserva" element={<CrearReserva />} />
             <Route path="mis-reservas" element={<MisReservas />} />
             <Route path="calendario" element={<Calendario />} />
-            <Route path="incidente" element={<Dashboard />} />
+            <Route path="incidente" element={<Incidente />} />
+            <Route path="admin" element={<Dashboard />} />
           </Route>
+          
+          <Route/>
         </Routes>
       </Suspense>
     </Router>

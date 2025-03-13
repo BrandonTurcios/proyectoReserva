@@ -26,18 +26,18 @@ export default function Layout({ correo, setCorreo }) {
     <div className="flex flex-col min-h-screen bg-gray-100">
       {/* Header */}
       <header className="bg-[#0f49b6] text-white p-3 shadow-lg">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row items-center justify-between">
           {/* Logo que redirige a Home */}
-          <Link to="/" className="flex items-center">
+          <Link to="/" className="flex items-center mb-2 md:mb-0">
             <img
               src={logo}
               alt="Logo"
-              className="h-9 w-15" // Ajusta el tamaño del logo
+              className="h-9 w-auto" // Ajusta el tamaño del logo
             />
             <span className="text-xl font-bold"></span>
           </Link>
-          <div className="flex items-center">
-            <span className="mr-4 text-lg">{correo}</span>
+          <div className="flex flex-col md:flex-row items-center space-y-2 md:space-y-0 md:space-x-4">
+            <span className="text-lg text-center md:text-left">{correo}</span>
             <button
               onClick={handleLogout}
               className="bg-red-600 px-4 py-2 rounded-lg text-white hover:bg-red-700 transition-all duration-300"
