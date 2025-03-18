@@ -2,9 +2,9 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Suspense, lazy } from "react";
 import Layout from "./components/Layout";
+import ProtectedRoute from "./pages/ProtectedRoute"; // Importar el nuevo componente
 import "./index.css";
 
-// Lazy loading de los componentes
 const CrearReserva = lazy(() => import("./pages/CrearReserva"));
 const MisReservas = lazy(() => import("./pages/MisReservas"));
 const Calendario = lazy(() => import("./pages/Calendario"));
@@ -13,7 +13,6 @@ const Home = lazy(() => import("./pages/Home"));
 const Inicio = lazy(() => import("./pages/Inicio"));
 const Dashboard = lazy(() => import("./pages/DashboardReservas"));
 
-// Pantalla de carga
 function LoadingScreen() {
   return (
     <div className="flex items-center justify-center h-screen bg-[#06065c]">
@@ -23,23 +22,18 @@ function LoadingScreen() {
 }
 
 function App() {
-  const [correo, setCorreo] = useState("");
+  const [correo, setCorreo] = useState(localStorage.getItem("email") || "");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Lista de imágenes en distintos componentes (asegúrate de incluir todas)
-    const images = [
-      "/pages/fondo2.webp", // Imagen de Inicio.jsx
-      "../UT2.png", 
-      "/pages/medidas.png"// Imagen de Home.jsx
-    ];
+    const images = ["/pages/fondo2.webp", "../UT2.png", "/pages/medidas.png"];
 
     const preloadImages = images.map((src) => {
       return new Promise((resolve) => {
         const img = new Image();
         img.src = src;
         img.onload = resolve;
-        img.onerror = resolve; // Evita bloqueos si una imagen falla
+        img.onerror = resolve;
       });
     });
 
@@ -59,10 +53,11 @@ function App() {
             <Route path="mis-reservas" element={<MisReservas />} />
             <Route path="calendario" element={<Calendario />} />
             <Route path="incidente" element={<Incidente />} />
-            <Route path="admin" element={<Dashboard />} />
+            {/* Ruta protegida */}
+            <Route element={<ProtectedRoute correo={correo} />}>
+              <Route path="admin" element={<Dashboard />} />
+            </Route>
           </Route>
-          
-          <Route/>
         </Routes>
       </Suspense>
     </Router>

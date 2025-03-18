@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
+import GraficaReservas from "./GraficaReservas"
 
 export default function DashboardReservas() {
   const [reservas, setReservas] = useState([]);
@@ -285,141 +286,152 @@ export default function DashboardReservas() {
         Dashboard de Reservas
       </h1>
 
-      <div className="mb-4 flex justify-center space-x-4">
-        <div>
-          <label className="mr-2 font-semibold">Filtrar por estado:</label>
-          <select
-            value={estadoFiltro}
-            onChange={(e) => setEstadoFiltro(e.target.value)}
-            className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="EN_ESPERA">En Espera</option>
-            <option value="APROBADA">Aprobada</option>
-            <option value="RECHAZADA">Rechazada</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="mr-2 font-semibold">Filtrar por tipo de usuario:</label>
-          <select
-            value={tipoUsuarioFiltro}
-            onChange={(e) => setTipoUsuarioFiltro(e.target.value)}
-            className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="TODOS">Todos</option>
-            <option value="Docente">Docente</option>
-            <option value="Estudiante">Estudiante</option>
-            <option value="Administrativo">Administrativo</option>
-            <option value="Prospección">Prospección</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="mr-2 font-semibold">Filtrar por laboratorio:</label>
-          <select
-            value={laboratorioFiltro}
-            onChange={(e) => setLaboratorioFiltro(e.target.value)}
-            className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="TODOS">Todos</option>
-            {laboratorios.map((laboratorio) => (
-              <option key={laboratorio.nombre} value={laboratorio.nombre}>
-                {laboratorio.nombre}
-              </option>
-            ))}
-          </select>
-        </div>
+      {/* Sección del gráfico */}
+      <div className="mb-8 p-6 bg-white rounded-lg shadow-md">
+        <h2 className="text-xl font-semibold mb-4 text-gray-700">Gráfico de Reservas</h2>
+        <GraficaReservas />
       </div>
 
-      <div className="overflow-x-auto w-full">
-  <table className="w-full bg-white shadow-lg rounded-lg border border-gray-300">
-    <thead>
-      <tr className="bg-blue-600 text-white text-left text-sm">
-        <th className="px-4 py-2 border-b whitespace-nowrap">Nombre</th>
-        <th className="px-4 py-2 border-b whitespace-nowrap">Tipo</th>
-        <th className="px-4 py-2 border-b whitespace-nowrap">Laboratorio</th>
-        <th className="px-4 py-2 border-b whitespace-nowrap">Motivo</th>
-        <th className="px-4 py-2 border-b whitespace-nowrap">Correos</th>
-        <th className="px-4 py-2 border-b whitespace-nowrap">Horarios</th>
-        <th className="px-4 py-2 border-b whitespace-nowrap">Estado</th>
-        <th className="px-4 py-2 border-b whitespace-nowrap">Acciones</th>
-      </tr>
-    </thead>
-    <tbody>
-      {reservasAgrupadas
-        .filter((grupo) =>
-          (estadoFiltro === "TODOS" || grupo.estado === estadoFiltro) &&
-          (tipoUsuarioFiltro === "TODOS" || grupo.tiposUsuarios.includes(tipoUsuarioFiltro)) &&
-          (laboratorioFiltro === "TODOS" || grupo.laboratorios?.nombre === laboratorioFiltro)
-        )
-        .map((grupo) => (
-          <React.Fragment key={grupo.ids.join("-")}>
-            <tr
-              className="border-t hover:bg-gray-200 transition-colors cursor-pointer text-sm"
-              onClick={() => toggleReserva(grupo)}
+      {/* Sección de filtros y tabla */}
+      <div className="p-6 bg-white rounded-lg shadow-md">
+        <h2 className="text-xl font-semibold mb-4 text-gray-700">Gestión de Reservas</h2>
+
+        {/* Filtros */}
+        <div className="mb-4 flex justify-center space-x-4">
+          <div>
+            <label className="mr-2 font-semibold">Filtrar por estado:</label>
+            <select
+              value={estadoFiltro}
+              onChange={(e) => setEstadoFiltro(e.target.value)}
+              className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <td className="px-4 py-2">{grupo.nombresUsuarios}</td>
-              <td className="px-4 py-2">{grupo.tiposUsuarios}</td>
-              <td className="px-4 py-2">{grupo.laboratorios?.nombre || "N/A"}</td>
-              <td className="px-4 py-2">{grupo.motivo_uso}</td>
-              <td className="px-4 py-2">{grupo.correos}</td>
-              <td className="px-4 py-2">{grupo.horarios}</td>
-              <td className="px-4 py-2 font-semibold">{grupo.estado}</td>
-              <td className="px-4 py-2 flex space-x-2">
-                {grupo.estado === "EN_ESPERA" && (
-                  <>
-                    <button
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        actualizarEstadoGrupo(grupo.ids, "APROBADA", grupo);
-                      }}
-                      className="bg-green-500 text-white px-3 py-1 rounded-lg hover:bg-green-600 transition text-xs"
-                    >
-                      ✓
-                    </button>
-                    <button
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        actualizarEstadoGrupo(grupo.ids, "RECHAZADA", grupo);
-                      }}
-                      className="bg-red-500 text-white px-3 py-1 rounded-lg hover:bg-red-600 transition text-xs"
-                    >
-                      ✗
-                    </button>
-                  </>
-                )}
-              </td>
-            </tr>
-            {reservaExpandida === grupo && (
-              <tr className="bg-gray-50">
-                <td colSpan="8" className="px-3 py-3">
+              <option value="EN_ESPERA">En Espera</option>
+              <option value="APROBADA">Aprobada</option>
+              <option value="RECHAZADA">Rechazada</option>
+            </select>
+          </div>
 
-                  <div className="flex justify-center items-center mt-2">
-                    <Calendar
-                      key={reservaExpandida ? reservaExpandida.id : "default"}
-                      value={fechaInicialCalendario}
-                      locale="es"
-                      tileClassName={({ date }) => {
-                        const isMarked = fechasMarcadas.some(
-                          (f) =>
-                            f instanceof Date && f.toDateString() === date.toDateString()
-                        );
-                        return isMarked
-                          ? "!bg-blue-500 text-white font-bold rounded-full opacity-80"
-                          : "";
-                      }}
-                      onClickDay={(date) => console.log("Fecha seleccionada:", date)}
-                    />
-                  </div>
-                </td>
+          <div>
+            <label className="mr-2 font-semibold">Filtrar por tipo de usuario:</label>
+            <select
+              value={tipoUsuarioFiltro}
+              onChange={(e) => setTipoUsuarioFiltro(e.target.value)}
+              className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="TODOS">Todos</option>
+              <option value="Docente">Docente</option>
+              <option value="Estudiante">Estudiante</option>
+              <option value="Administrativo">Administrativo</option>
+              <option value="Prospección">Prospección</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="mr-2 font-semibold">Filtrar por laboratorio:</label>
+            <select
+              value={laboratorioFiltro}
+              onChange={(e) => setLaboratorioFiltro(e.target.value)}
+              className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="TODOS">Todos</option>
+              {laboratorios.map((laboratorio) => (
+                <option key={laboratorio.nombre} value={laboratorio.nombre}>
+                  {laboratorio.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Tabla de reservas */}
+        <div className="overflow-x-auto w-full">
+          <table className="w-full bg-white shadow-lg rounded-lg border border-gray-300">
+            <thead>
+              <tr className="bg-blue-600 text-white text-left text-sm">
+                <th className="px-4 py-2 border-b whitespace-nowrap">Nombre</th>
+                <th className="px-4 py-2 border-b whitespace-nowrap">Tipo</th>
+                <th className="px-4 py-2 border-b whitespace-nowrap">Laboratorio</th>
+                <th className="px-4 py-2 border-b whitespace-nowrap">Motivo</th>
+                <th className="px-4 py-2 border-b whitespace-nowrap">Correos</th>
+                <th className="px-4 py-2 border-b whitespace-nowrap">Horarios</th>
+                <th className="px-4 py-2 border-b whitespace-nowrap">Estado</th>
+                <th className="px-4 py-2 border-b whitespace-nowrap">Acciones</th>
               </tr>
-            )}
-          </React.Fragment>
-        ))}
-    </tbody>
-  </table>
-</div>
-
+            </thead>
+            <tbody>
+              {reservasAgrupadas
+                .filter((grupo) =>
+                  (estadoFiltro === "TODOS" || grupo.estado === estadoFiltro) &&
+                  (tipoUsuarioFiltro === "TODOS" || grupo.tiposUsuarios.includes(tipoUsuarioFiltro)) &&
+                  (laboratorioFiltro === "TODOS" || grupo.laboratorios?.nombre === laboratorioFiltro)
+                )
+                .map((grupo) => (
+                  <React.Fragment key={grupo.ids.join("-")}>
+                    <tr
+                      className="border-t hover:bg-gray-200 transition-colors cursor-pointer text-sm"
+                      onClick={() => toggleReserva(grupo)}
+                    >
+                      <td className="px-4 py-2">{grupo.nombresUsuarios}</td>
+                      <td className="px-4 py-2">{grupo.tiposUsuarios}</td>
+                      <td className="px-4 py-2">{grupo.laboratorios?.nombre || "N/A"}</td>
+                      <td className="px-4 py-2">{grupo.motivo_uso}</td>
+                      <td className="px-4 py-2">{grupo.correos}</td>
+                      <td className="px-4 py-2">{grupo.horarios}</td>
+                      <td className="px-4 py-2 font-semibold">{grupo.estado}</td>
+                      <td className="px-4 py-2 flex space-x-2">
+                        {grupo.estado === "EN_ESPERA" && (
+                          <>
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                actualizarEstadoGrupo(grupo.ids, "APROBADA", grupo);
+                              }}
+                              className="bg-green-500 text-white px-3 py-1 rounded-lg hover:bg-green-600 transition text-xs"
+                            >
+                              ✓
+                            </button>
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                actualizarEstadoGrupo(grupo.ids, "RECHAZADA", grupo);
+                              }}
+                              className="bg-red-500 text-white px-3 py-1 rounded-lg hover:bg-red-600 transition text-xs"
+                            >
+                              ✗
+                            </button>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                    {reservaExpandida === grupo && (
+                      <tr className="bg-gray-50">
+                        <td colSpan="8" className="px-3 py-3">
+                          <div className="flex justify-center items-center mt-2">
+                            <Calendar
+                              key={reservaExpandida ? reservaExpandida.id : "default"}
+                              value={fechaInicialCalendario}
+                              locale="es"
+                              tileClassName={({ date }) => {
+                                const isMarked = fechasMarcadas.some(
+                                  (f) =>
+                                    f instanceof Date && f.toDateString() === date.toDateString()
+                                );
+                                return isMarked
+                                  ? "!bg-blue-500 text-white font-bold rounded-full opacity-80"
+                                  : "";
+                              }}
+                              onClickDay={(date) => console.log("Fecha seleccionada:", date)}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
