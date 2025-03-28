@@ -12,7 +12,7 @@ const Incidente = lazy(() => import("./pages/Incidente"));
 const Home = lazy(() => import("./pages/Home"));
 const Inicio = lazy(() => import("./pages/Inicio"));
 const Dashboard = lazy(() => import("./pages/DashboardReservas"));
-
+const PorcentajeUso = lazy(() => import("./pages/PorcentajeUso"));
 function LoadingScreen() {
   return (
     <div className="flex items-center justify-center h-screen bg-[#06065c]">
@@ -52,7 +52,7 @@ function App() {
             <Route path="crear-reserva" element={<CrearReserva />} />
             <Route path="mis-reservas" element={<MisReservas />} />
             <Route path="calendario" element={<Calendario />} />
-            <Route path="incidente" element={<Incidente />} />
+            <Route path="incidente" element={<PorcentajeUso />} />
             {/* Ruta protegida */}
             <Route element={<ProtectedRoute correo={correo} />}>
               <Route path="admin" element={<Dashboard />} />

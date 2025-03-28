@@ -22,9 +22,14 @@ export default function CrearReserva() {
   const [laboratorioId, setLaboratorioId] = useState(null);
   const [showPopup, setShowPopup] = useState(false);
   const [error, setError] = useState("");
+  const [error2, setError2] = useState("");
   const [habilitado,setHabilitado] = useState(false);
   const [esEstudiante, setEsEstudiante] = useState(false);
   const [repetirDias, setRepetirDias] = useState(false);
+  const [aceptaReglamento, setAceptaReglamento] = useState(false);
+  const [mostrarReglamento, setMostrarReglamento] = useState(false);
+  const [reglamentoLeido, setReglamentoLeido] = useState(false); // Nuevo estado
+
 
   useEffect(() => {
     const emailFromStorage = localStorage.getItem("email");
@@ -184,7 +189,12 @@ export default function CrearReserva() {
       setError("Los estudiantes solo pueden seleccionar hasta 2 horarios.");
       return;
     }
-  
+    if (!reglamentoLeido || !aceptaReglamento) {
+      setError2("Debes leer y aceptar el reglamento para continuar");
+      return;
+    }
+   
+
     try {
       // Declarar diasReservaciones aquí, antes de usarla
       let diasReservaciones = [];
@@ -494,6 +504,7 @@ export default function CrearReserva() {
       <input
         type="checkbox"
         checked={repetirDias}
+        disabled={!habilitado}
         onChange={(e) => setRepetirDias(e.target.checked)}
         className="mr-2"
       />
@@ -612,6 +623,205 @@ export default function CrearReserva() {
               {error && <p className="text-red-500">{error}</p>}
             </div>
           </div>
+          
+
+
+          <div className="mt-4">
+  <div className="relative flex items-start">
+    {/* Checkbox (siempre visible pero controlado) */}
+    <div className="flex items-center h-5">
+      <input
+        id="acepto-reglamento"
+        name="acepto-reglamento"
+        type="checkbox"
+        className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
+        checked={aceptaReglamento}
+        onChange={(e) => {
+          if (!reglamentoLeido) {
+            setMostrarReglamento(true);
+            e.preventDefault();
+            return;
+          }
+          setAceptaReglamento(e.target.checked);
+        }}
+        disabled={!reglamentoLeido}
+      />
+    </div>
+    
+    {/* Texto del label - completamente independiente */}
+    <div className="ml-3 text-sm">
+      <div className="flex items-center">
+        <span className="font-medium text-gray-700 mr-1">Acepto las</span>
+        <span 
+          className="text-blue-600 hover:text-blue-500 hover:underline cursor-pointer"
+          onClick={() => setMostrarReglamento(true)}
+        >
+          politicas de uso de laboratorio 
+        </span>
+      </div>
+      
+      {/* Mensaje de error */}
+      {!aceptaReglamento && error2 && (
+        <p className="mt-1 text-sm text-red-600">
+          Debes abrir y leer el reglamento antes de aceptar
+        </p>
+      )}
+    </div>
+  </div>
+</div>
+
+
+
+{mostrarReglamento && (
+  <div className="fixed inset-0 z-50 overflow-y-auto">
+    <style jsx global>{`
+      body {
+        overflow: hidden;
+      }
+    `}</style>
+    <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+      <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+        <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+      </div>
+
+      <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+        <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+          <div className="sm:flex sm:items-start">
+            <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
+              <h3 className="text-xl font-bold text-gray-900 mb-4 border-b pb-2">
+                Reglamento para Talleres - Facultad de Ingeniería y Arquitectura
+              </h3>
+              <div className="mt-2 max-h-[70vh] overflow-y-auto text-sm">
+                <div className="prose prose-sm max-w-none">
+                  <section className="mb-6">
+                    <h4 className="font-bold text-lg mb-2">1. Seguridad Personal:</h4>
+                    <p className="font-semibold mb-1">• Uso Obligatorio del Equipo de Protección Personal (EPP):</p>
+                    <ul className="list-disc pl-5 mb-3 space-y-1">
+                      <li>Todos los estudiantes deben usar el equipo de protección adecuado según la actividad que realicen, incluyendo caretas, guantes, gafas de seguridad, botas de seguridad, y ropa adecuada.</li>
+                      <li><span className="font-medium">En soldadura:</span> Careta o máscara de soldador, guantes resistentes al calor, ropa de manga larga.</li>
+                      <li><span className="font-medium">En pintura:</span> Respiradores adecuados, guantes, gafas de seguridad.</li>
+                      <li><span className="font-medium">En construcción y biodigestores:</span> Casco, guantes resistentes, gafas de seguridad y botas con punta de acero.</li>
+                    </ul>
+                  </section>
+
+                  <section className="mb-6">
+                    <h4 className="font-bold text-lg mb-2">2. Uso de Herramientas y Equipos:</h4>
+                    <p className="font-semibold mb-1">• Inspección Previa:</p>
+                    <ul className="list-disc pl-5 mb-3 space-y-1">
+                      <li>Antes de usar cualquier herramienta o equipo, todos los estudiantes deben inspeccionarlos para asegurarse de que estén en buen estado. Si se detecta algún problema, se debe informar al supervisor o docente.</li>
+                    </ul>
+                    <p className="font-semibold mb-1">• Uso Adecuado:</p>
+                    <ul className="list-disc pl-5 mb-3 space-y-1">
+                      <li>Utilizar cada herramienta solo para el propósito que fue diseñada. Por ejemplo, las soldadoras solo deben usarse para soldadura y los equipos para pintura solo deben usarse para pintura.</li>
+                    </ul>
+                  </section>
+
+                  <section className="mb-6">
+                    <h4 className="font-bold text-lg mb-2">3. Seguridad en el Área de Trabajo:</h4>
+                    <p className="font-semibold mb-1">• Orden y Limpieza:</p>
+                    <ul className="list-disc pl-5 mb-3 space-y-1">
+                      <li>Mantener el área de trabajo limpia y ordenada. El desorden puede provocar accidentes. Cada estudiante debe limpiar su espacio al finalizar la actividad.</li>
+                      <li>Asegúrese de que los cables de las herramientas estén organizados y no representen un peligro de tropiezos.</li>
+                    </ul>
+                    <p className="font-semibold mb-1">• Zona de Soldadura y Pintura:</p>
+                    <ul className="list-disc pl-5 mb-3 space-y-1">
+                      <li>Asegúrese de que las áreas de soldadura o pintura estén bien ventiladas. Evite la presencia de materiales inflamables cerca.</li>
+                      <li>Para todo tipo de trabajo de soldadura y corte se requiere ventilación ya sea natural o artificial.</li>
+                      <li>1. Las casetas de soldar deben mantenerse con ventilación natural por lo que está prohibido cerrarlos totalmente o almacenar cualquier tipo de objetos que no pertenezcan al área.</li>
+                      <li>2. Para trabajos de soldadura dentro de un espacio confinado primeramente se recomienda hacer el trabajo fuera de este.</li>
+                      <li>Asegúrese que no haya fuentes de agua cerca del área de soldadura.</li>
+                    </ul>
+                  </section>
+
+                  <section className="mb-6">
+                    <h4 className="font-bold text-lg mb-2">4. Manipulación de Materiales Peligrosos:</h4>
+                    <p className="font-semibold mb-1">• Pinturas y Solventes:</p>
+                    <ul className="list-disc pl-5 mb-3 space-y-1">
+                      <li>Trabaje en áreas bien ventiladas cuando utilice pinturas o productos que liberen vapores.</li>
+                      <li>Almacene correctamente los productos químicos y asegúrese de que las etiquetas de seguridad sean visibles.</li>
+                    </ul>
+                  </section>
+
+                  <section className="mb-6">
+                    <h4 className="font-bold text-lg mb-2">5. Prevención de Accidentes:</h4>
+                    <p className="font-semibold mb-1">• Emergencias:</p>
+                    <ul className="list-disc pl-5 mb-3 space-y-1">
+                      <li>En caso de accidente o quemaduras, informe inmediatamente al supervisor o docente.</li>
+                    </ul>
+                    <p className="font-semibold mb-1">• Prohibición de Consumo de Alcohol y Drogas:</p>
+                    <ul className="list-disc pl-5 mb-3 space-y-1">
+                      <li>Está prohibido consumir alcohol y drogas antes o durante las actividades en el taller.</li>
+                    </ul>
+                  </section>
+
+                  <section className="mb-6">
+                    <h4 className="font-bold text-lg mb-2">6. Normas de Conducta:</h4>
+                    <p className="font-semibold mb-1">• Responsabilidad y Compromiso:</p>
+                    <ul className="list-disc pl-5 mb-3 space-y-1">
+                      <li>Los estudiantes deben ser responsables al manejar las herramientas y equipos.</li>
+                    </ul>
+                  </section>
+
+                  <section className="mb-6">
+                    <h4 className="font-bold text-lg mb-2">7. Mantenimiento y Uso Responsable de Herramientas:</h4>
+                    <p className="font-semibold mb-1">• Mantenimiento Preventivo:</p>
+                    <ul className="list-disc pl-5 mb-3 space-y-1">
+                      <li>Los estudiantes deben notificar cualquier fallo o daño en las herramientas y equipos.</li>
+                    </ul>
+                  </section>
+
+                  <section className="mb-6">
+                    <h4 className="font-bold text-lg mb-2">9. Supervisión y Cumplimiento:</h4>
+                    <p className="font-semibold mb-1">• Inspección Regular:</p>
+                    <ul className="list-disc pl-5 mb-3 space-y-1">
+                      <li>Los docentes realizarán inspecciones regulares para asegurar el cumplimiento de las normas.</li>
+                    </ul>
+                  </section>
+
+                  <section className="mb-6">
+                    <h4 className="font-bold text-lg mb-2">10. Horario de operación:</h4>
+                    <ul className="list-disc pl-5 mb-3 space-y-1">
+                      <li>Respetar el horario establecido por el personal administrativo del área de trabajo.</li>
+                    </ul>
+                  </section>
+
+                  <section>
+                    <h4 className="font-bold text-lg mb-2">11. Disposición de residuos:</h4>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>Se debe contar con un contenedor metálico para desperdicios y sobrantes de materiales.</li>
+                    </ul>
+                  </section>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+          <button
+            type="button"
+            className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm"
+            onClick={() => {
+              setMostrarReglamento(false);
+              setReglamentoLeido(true);
+              setAceptaReglamento(true);
+            }}
+          >
+            Aceptar y Continuar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
+
+
+
+
+
+
+
+
 
           <button
             type="submit"
@@ -619,6 +829,7 @@ export default function CrearReserva() {
           >
             Enviar
           </button>
+
         </form>
         {/* Popup de Confirmación */}
         {showPopup && (
