@@ -1,22 +1,22 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState ,memo} from 'react';
 import ReactSpeedometer from 'react-d3-speedometer';
 import { supabase } from '../supabaseClient';
 
-const PorcentajeUso = () => {
+const PorcentajeUso = memo(() => {
   const [laboratorios, setLaboratorios] = useState([]);
-  const [selectedLab, setSelectedLab] = useState('');
   const [horasMax, setHorasMax] = useState(15);
   const [rangoFechas, setRangoFechas] = useState({ inicio: '', final: '' });
   const [trimestre, setTrimestre] = useState('');
-  const [uso, setUso] = useState({ diario: 0, semanal: 0, trimestral: 0 });
+  const [usoLaboratorios, setUsoLaboratorios] = useState({});
   const [trimestres, setTrimestres] = useState({
     Q1: { inicio: '', final: '' },
     Q2: { inicio: '', final: '' },
     Q3: { inicio: '', final: '' },
     Q4: { inicio: '', final: '' },
   });
+  const [cargando, setCargando] = useState(false);
 
-  // Cargar trimestres desde la tabla fechas_Q al inicio
+  // Cargar trimestres y laboratorios al inicio
   useEffect(() => {
     obtenerTrimestres();
     obtenerLaboratorios();
@@ -30,25 +30,22 @@ const PorcentajeUso = () => {
       return;
     }
 
-    // Convertir los datos de la tabla a un objeto de trimestres
     const nuevosTrimestres = data.reduce((acc, row) => {
       acc[row.id] = { inicio: row.inicio || '', final: row.final || '' };
       return acc;
     }, {});
 
-    // Asegurarse de que todos los trimestres estén definidos
     setTrimestres((prev) => ({
       Q1: { inicio: '', final: '' },
       Q2: { inicio: '', final: '' },
       Q3: { inicio: '', final: '' },
       Q4: { inicio: '', final: '' },
-      ...nuevosTrimestres, // Sobrescribir con los datos de Supabase
+      ...nuevosTrimestres,
     }));
   }
 
   // Guardar un trimestre en la tabla fechas_Q
   async function guardarTrimestre(trimestreKey, inicio, final) {
-    // Validar que las fechas no estén vacías
     if (!inicio || !final) {
       console.error(`Las fechas para el trimestre ${trimestreKey} no pueden estar vacías.`);
       return;
@@ -62,8 +59,6 @@ const PorcentajeUso = () => {
       console.error('Error al guardar trimestre:', error);
       return;
     }
-
-    console.log(`Trimestre ${trimestreKey} guardado correctamente.`);
   }
 
   // Guardar todos los trimestres en la base de datos
@@ -99,11 +94,18 @@ const PorcentajeUso = () => {
       return;
     }
     setLaboratorios(data);
+    
+    // Inicializar el estado de uso para cada laboratorio
+    const inicialUso = data.reduce((acc, lab) => {
+      acc[lab.id] = { diario: 0, semanal: 0, trimestral: 0 };
+      return acc;
+    }, {});
+    setUsoLaboratorios(inicialUso);
   }
 
-  async function calcularUso() {
-    if (!selectedLab || (!rangoFechas.inicio && !trimestre)) {
-      alert('Selecciona un laboratorio y un rango de fechas o un trimestre');
+  async function calcularUsoParaTodos() {
+    if ((!rangoFechas.inicio && !trimestre) || laboratorios.length === 0) {
+      alert('Selecciona un rango de fechas o un trimestre');
       return;
     }
 
@@ -116,168 +118,250 @@ const PorcentajeUso = () => {
       return;
     }
 
-    console.log('Calculando uso para:', selectedLab, 'Fechas:', fechas);
+    setCargando(true);
+    console.log('Calculando uso para todos los laboratorios. Fechas:', fechas);
 
-    // Obtener todas las reservas aprobadas del laboratorio en el rango de fechas
-    const { data: reservas, error } = await supabase
-      .from('reservaciones_horarios')
-      .select('horario_id, reservaciones!inner(id, laboratorio_id, estado, fecha)')
-      .eq('reservaciones.laboratorio_id', selectedLab)
-      .eq('reservaciones.estado', 'APROBADA')
-      .gte('reservaciones.fecha', fechas.inicio)
-      .lte('reservaciones.fecha', fechas.final);
+    try {
+      // Obtener todas las reservas aprobadas en el rango de fechas para todos los laboratorios
+      const { data: reservas, error } = await supabase
+        .from('reservaciones_horarios')
+        .select('horario_id, reservaciones!inner(id, laboratorio_id, estado, fecha)')
+        .eq('reservaciones.estado', 'APROBADA')
+        .gte('reservaciones.fecha', fechas.inicio)
+        .lte('reservaciones.fecha', fechas.final);
 
-    if (error) {
-      console.error('Error obteniendo reservas:', error);
-      return;
+      if (error) throw error;
+
+      console.log('Reservas obtenidas:', reservas.length);
+
+      // Procesar las reservas por laboratorio
+      const usoPorLab = {};
+
+      // Inicializar todos los laboratorios
+      laboratorios.forEach(lab => {
+        usoPorLab[lab.id] = { diario: 0, semanal: 0, trimestral: 0 };
+      });
+
+      // Agrupar horarios por laboratorio
+      const horariosPorLab = reservas.reduce((acc, r) => {
+        const labId = r.reservaciones.laboratorio_id;
+        if (!acc[labId]) acc[labId] = new Set();
+        acc[labId].add(r.horario_id);
+        return acc;
+      }, {});
+
+      // Calcular porcentajes para cada laboratorio
+      Object.keys(horariosPorLab).forEach(labId => {
+        const totalHorariosReservados = horariosPorLab[labId].size;
+        const horasReservadas = totalHorariosReservados * 1.33;
+
+        const porcentajeDiario = horasReservadas / horasMax;
+        const porcentajeSemanal = horasReservadas / (horasMax * 5.5);
+        const porcentajeTrimestral = horasReservadas / (horasMax * 60);
+
+        usoPorLab[labId] = {
+          diario: parseFloat((porcentajeDiario * 100).toFixed(2)),
+          semanal: parseFloat((porcentajeSemanal * 100).toFixed(2)),
+          trimestral: parseFloat((porcentajeTrimestral * 100).toFixed(2))
+        };
+      });
+
+      setUsoLaboratorios(usoPorLab);
+      console.log('Uso actualizado:', usoPorLab);
+
+    } catch (error) {
+      console.error('Error calculando uso:', error);
+    } finally {
+      setCargando(false);
     }
-
-    console.log('Reservas obtenidas:', reservas);
-
-    // Filtrar horarios únicos que tienen al menos una reserva aprobada
-    const horariosOcupados = new Set(reservas.map(r => r.horario_id));
-    const totalHorariosReservados = horariosOcupados.size;
-
-    // Convertir horarios reservados a horas (1 horario = 1.33 horas)
-    const horasReservadas = totalHorariosReservados * 1.33;
-
-    // Calcular porcentajes basados en las horas máximas establecidas por el usuario
-    const porcentajeDiario = horasReservadas / horasMax;
-    const porcentajeSemanal = horasReservadas / (horasMax * 5.5);
-    const porcentajeTrimestral = horasReservadas / (horasMax * 60);
-
-    setUso({
-      diario: (porcentajeDiario * 100).toFixed(2),
-      semanal: (porcentajeSemanal * 100).toFixed(2),
-      trimestral: (porcentajeTrimestral * 100).toFixed(2),
-    });
-
-    console.log('Uso actualizado:', {
-      diario: (porcentajeDiario * 100).toFixed(2),
-      semanal: (porcentajeSemanal * 100).toFixed(2),
-      trimestral: (porcentajeTrimestral * 100).toFixed(2),
-    });
   }
 
   return (
-    <div>
-      <h2 className="text-xl font-semibold mb-4">Porcentaje de Uso por Laboratorio</h2>
+    <div className="p-4">
+      <h2 className="text-2xl font-bold mb-6">Porcentaje de Uso de Laboratorios</h2>
 
-      <label className="block mb-2">Selecciona un laboratorio:</label>
-      <select
-        className="border p-2 mb-4 w-full"
-        value={selectedLab}
-        onChange={(e) => setSelectedLab(e.target.value)}
-      >
-        <option value="">Seleccione...</option>
-        {laboratorios.map((lab) => (
-          <option key={lab.id} value={lab.id}>{lab.nombre}</option>
-        ))}
-      </select>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="bg-white p-4 rounded-lg shadow">
+          <h3 className="text-lg font-semibold mb-4">Configuración</h3>
 
-      <label className="block mb-2">Horas máximas por día:</label>
-      <input
-        type="number"
-        className="border p-2 mb-4 w-full"
-        value={horasMax}
-        min="1"
-        max="15"
-        onChange={(e) => setHorasMax(Number(e.target.value))}
-      />
+          <div className="mb-4">
+            <label className="block mb-2 font-medium">Horas máximas por día:</label>
+            <input
+              type="number"
+              className="border p-2 w-full rounded"
+              value={horasMax}
+              min="1"
+              max="15"
+              onChange={(e) => setHorasMax(Number(e.target.value))}
+            />
+          </div>
 
-      <label className="block mb-2">Selecciona un trimestre:</label>
-      <select
-        className="border p-2 mb-4 w-full"
-        value={trimestre}
-        onChange={(e) => setTrimestre(e.target.value)}
-      >
-        <option value="">Seleccione...</option>
-        <option value="Q1">Q1</option>
-        <option value="Q2">Q2</option>
-        <option value="Q3">Q3</option>
-        <option value="Q4">Q4</option>
-      </select>
+          <div className="mb-4">
+            <label className="block mb-2 font-medium">Selecciona un trimestre:</label>
+            <select
+              className="border p-2 w-full rounded"
+              value={trimestre}
+              onChange={(e) => setTrimestre(e.target.value)}
+            >
+              <option value="">Seleccione...</option>
+              <option value="Q1">Q1</option>
+              <option value="Q2">Q2</option>
+              <option value="Q3">Q3</option>
+              <option value="Q4">Q4</option>
+            </select>
+          </div>
 
-      {/* Formulario para actualizar los rangos de los trimestres */}
-      <div className="mt-4">
-        <h3 className="text-lg font-semibold mb-2">Definir Rangos de Trimestres</h3>
-        {Object.keys(trimestres).map((key) => (
-          <div key={key} className="mb-4">
-            <label className="block mb-2">{key}:</label>
+          <div className="mb-4">
+            <label className="block mb-2 font-medium">O selecciona un rango de fechas:</label>
             <div className="flex gap-2">
               <input
                 type="date"
-                className="border p-2 w-full"
-                value={trimestres[key].inicio}
-                onChange={(e) =>
-                  actualizarTrimestre(key, e.target.value, trimestres[key].final)
-                }
+                className="border p-2 w-full rounded"
+                value={rangoFechas.inicio}
+                onChange={(e) => setRangoFechas({ ...rangoFechas, inicio: e.target.value })}
               />
               <input
                 type="date"
-                className="border p-2 w-full"
-                value={trimestres[key].final}
-                onChange={(e) =>
-                  actualizarTrimestre(key, trimestres[key].inicio, e.target.value)
-                }
+                className="border p-2 w-full rounded"
+                value={rangoFechas.final}
+                onChange={(e) => setRangoFechas({ ...rangoFechas, final: e.target.value })}
               />
+            </div>
+          </div>
+
+          <button
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded w-full"
+            onClick={calcularUsoParaTodos}
+            disabled={cargando}
+          >
+            {cargando ? 'Calculando...' : 'Calcular Uso para Todos'}
+          </button>
+        </div>
+
+        <div className="bg-white p-4 rounded-lg shadow">
+          <h3 className="text-lg font-semibold mb-4">Definir Rangos de Trimestres</h3>
+          {Object.keys(trimestres).map((key) => (
+            <div key={key} className="mb-4">
+              <label className="block mb-1 font-medium">{key}:</label>
+              <div className="flex gap-2">
+                <input
+                  type="date"
+                  className="border p-2 w-full rounded"
+                  value={trimestres[key].inicio}
+                  onChange={(e) =>
+                    actualizarTrimestre(key, e.target.value, trimestres[key].final)
+                  }
+                />
+                <input
+                  type="date"
+                  className="border p-2 w-full rounded"
+                  value={trimestres[key].final}
+                  onChange={(e) =>
+                    actualizarTrimestre(key, trimestres[key].inicio, e.target.value)
+                  }
+                />
+              </div>
+            </div>
+          ))}
+          <button
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded w-full mt-2"
+            onClick={guardarTrimestresEnDB}
+          >
+            Actualizar Trimestres
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {laboratorios.map((lab) => (
+        <div key={lab.id} className="bg-white p-4 rounded-lg shadow" style={{ minHeight: '500px' }}>
+            <h3 className="text-xl font-bold mb-4 text-center" style={{
+            wordBreak: 'break-word',
+            overflowWrap: 'break-word',
+            padding: '0 8px',
+            minHeight: '60px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color:'blue'
+          }}>
+            {lab.nombre}
+          </h3>
+            
+          <div className="space-y-8">
+            {/* Velocímetro Diario */}
+            <div className="text-center">
+              <h4 className="text-md font-semibold mb-2">Uso Diario</h4>
+              <div className="relative" style={{ height: '160px' ,paddingLeft:'20%'}}>
+                <ReactSpeedometer
+                  width={220}
+                  height={160}
+                  value={usoLaboratorios[lab.id]?.diario || 0}
+                  maxValue={100}
+                  customSegmentStops={[0, 25, 50, 75, 100]}
+                  segmentColors={['#FF471A', '#FFB01A', '#FFEA1A', '#A2FF1A', '#1AFF4F']}
+                  needleColor="#5A5A5A"
+                  needleTransitionDuration={2000}
+                  needleTransition="easeElastic"
+                  textColor="#000"
+                  valueFormat=".0f"
+                  currentValueText="Valor: ${value}%"
+
+                />
+                
+              </div>
+            </div>
+            
+            {/* Velocímetro Semanal */}
+            <div className="text-center">
+              <h4 className="text-md font-semibold mb-2">Uso Semanal</h4>
+              <div className="relative" style={{ height: '160px' ,paddingLeft:'20%'}}>
+                <ReactSpeedometer
+                  width={220}
+                  height={160}
+                  value={usoLaboratorios[lab.id]?.semanal || 0}
+                  maxValue={100}
+                  customSegmentStops={[0, 25, 50, 75, 100]}
+                  segmentColors={['#FF471A', '#FFB01A', '#FFEA1A', '#A2FF1A', '#1AFF4F']}
+                  needleColor="#5A5A5A"
+                  needleTransitionDuration={2000}
+                  needleTransition="easeElastic"
+                  textColor="#000"
+                  valueFormat=".0f"
+                  currentValueText="Valor: ${value}%"
+
+                />
+                
+              </div>
+            </div>
+            
+            {/* Velocímetro Trimestral */}
+            <div className="text-center">
+              <h4 className="text-md font-semibold mb-2">Uso Trimestral</h4>
+              <div className="relative" style={{ height: '160px' ,paddingLeft:'20%'}}>
+                <ReactSpeedometer
+                  width={220}
+                  height={160}
+                  value={usoLaboratorios[lab.id]?.trimestral || 0}
+                  maxValue={100}
+                  customSegmentStops={[0, 25, 50, 75, 100]}
+                  segmentColors={['#FF471A', '#FFB01A', '#FFEA1A', '#A2FF1A', '#1AFF4F']}
+                  needleColor="#5A5A5A"
+                  needleTransitionDuration={2000}
+                  needleTransition="easeElastic"
+                  textColor="#000"
+                  valueFormat=".0f"
+                  currentValueText="Valor: ${value}%"
+                />
+               
+              </div>
+            </div>
             </div>
           </div>
         ))}
       </div>
-
-      {/* Botón para guardar los trimestres en la base de datos */}
-      <button
-        className="bg-green-500 text-white px-4 py-2 rounded mb-4"
-        onClick={guardarTrimestresEnDB}
-      >
-        Actualizar Trimestres
-      </button>
-
-      <label className="block mb-2">O selecciona un rango de fechas:</label>
-      <div className="flex gap-2 mb-4">
-        <input
-          type="date"
-          className="border p-2 w-full"
-          value={rangoFechas.inicio}
-          onChange={(e) => setRangoFechas({ ...rangoFechas, inicio: e.target.value })}
-        />
-        <input
-          type="date"
-          className="border p-2 w-full"
-          value={rangoFechas.final}
-          onChange={(e) => setRangoFechas({ ...rangoFechas, final: e.target.value })}
-        />
-      </div>
-
-      <button
-        className="bg-blue-500 text-white px-4 py-2 rounded"
-        onClick={calcularUso}
-      >
-        Calcular Uso
-      </button>
-
-      {uso.diario > 0 && (
-        <div className="mt-6">
-          <h3 className="text-lg font-semibold">Resultados</h3>
-          <p>Diario: {uso.diario}%</p>
-          <p>Semanal: {uso.semanal}%</p>
-          <p>Trimestral: {uso.trimestral}%</p>
-          <ReactSpeedometer
-            value={uso.diario}
-            maxValue={100}
-            needleColor="orange"
-            startColor="red"
-            endColor="green"
-            textColor="#000"
-            fontSize={20}
-            segments={10}
-            textFormatter={(value) => `${Math.round(value)}%`}
-          />
-        </div>
-      )}
     </div>
   );
-};
+});
 
 export default PorcentajeUso;

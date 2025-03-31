@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { supabase } from "../supabaseClient";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import GraficaReservas from "./GraficaReservas"
+import PorcentajeUso
+ from "./PorcentajeUso";
 
 export default function DashboardReservas() {
   const [reservas, setReservas] = useState([]);
@@ -20,6 +22,27 @@ export default function DashboardReservas() {
     obtenerReservas();
     obtenerLaboratorios();
   }, []);
+
+  const DIAS_SEMANA = {
+    Domingo: 0,
+    Lunes: 1,
+    Martes: 2,
+    Miércoles: 3,
+    Jueves: 4,
+    Viernes: 5,
+    Sábado: 6,
+  };
+  
+
+    const [showStats, setShowStats] = useState(false);
+    
+    // Memoizamos el componente para preservar su estado
+    const memoizedStats = useMemo(() => (
+      <div className="mb-8 p-6 bg-white rounded-lg shadow-md">
+        <PorcentajeUso />
+      </div>
+    ), []);
+
 
   async function obtenerReservas() {
     const { data, error } = await supabase
@@ -218,54 +241,97 @@ export default function DashboardReservas() {
   }
 
   function agruparReservas(reservas) {
+    const DIAS_SEMANA_REVERSO = {
+      0: 'Domingo',
+      1: 'Lunes',
+      2: 'Martes',
+      3: 'Miércoles',
+      4: 'Jueves',
+      5: 'Viernes',
+      6: 'Sábado'
+    };
+  
     const agrupadas = reservas.reduce((acc, reserva) => {
-      const correos =
-        reserva.reservaciones_usuarios
-          ?.map((ru) => ru.usuarios?.correo)
-          .filter(correo => correo && correo.trim() !== "") // Filtra correos vacíos o con solo espacios
-          .sort()
-          .join(", ") || "N/A";
+      // Normalización de datos básicos
+      const motivoNormalizado = reserva.motivo_uso.toLowerCase().trim();
+      const laboratorioId = reserva.laboratorio_id;
   
-      const tiposUsuarios =
-        reserva.reservaciones_usuarios
-          ?.map((ru) => ru.usuarios?.tipo_usuario)
-          .filter(Boolean)
-          .join(", ") || "N/A";
+      // Procesar usuarios
+      const usuariosInfo = reserva.reservaciones_usuarios || [];
+      const nombresUsuarios = usuariosInfo
+        .map(ru => ru.usuarios?.nombre?.trim())
+        .filter(Boolean)
+        .join(", ") || "Desconocido";
   
-      const nombresUsuarios =
-        reserva.reservaciones_usuarios
-          ?.map((ru) => ru.usuarios?.nombre)
-          .filter(Boolean)
-          .join(", ") || "Desconocido";
+      // Procesar horarios (ordenados)
+      const horariosInfo = reserva.reservaciones_horarios || [];
+      const horarios = horariosInfo
+        .map(rh => rh.horarios?.horario)
+        .filter(Boolean)
+        .sort()
+        .join(", ") || "No asignado";
   
-      const horarios =
-        reserva.reservaciones_horarios
-          ?.map((rh) => rh.horarios?.horario)
-          .filter(Boolean)
-          .join(", ") || "No asignado";
+      // Procesar fecha con ajuste de zona horaria
+      const fechaReserva = new Date(reserva.fecha);
+      const fechaAjustada = new Date(fechaReserva.getTime() + fechaReserva.getTimezoneOffset() * 60000);
   
-      const key = `${reserva.motivo_uso}-${correos}-${horarios}`;
+      // CLAVE DE AGRUPACIÓN SIMPLIFICADA (lo más importante primero)
+      const key = [
+        motivoNormalizado,
+        laboratorioId,
+        nombresUsuarios.toLowerCase()
+      ].join('|');
   
       if (!acc[key]) {
         acc[key] = {
           ...reserva,
-          correos,
+          correos: usuariosInfo
+            .map(ru => ru.usuarios?.correo?.trim())
+            .filter(Boolean)
+            .join(", ") || "N/A",
           horarios,
           nombresUsuarios,
-          tiposUsuarios,
-          fechas: [new Date(reserva.fecha)],
+          tiposUsuarios: usuariosInfo
+            .map(ru => ru.usuarios?.tipo_usuario)
+            .filter(Boolean)
+            .join(", ") || "N/A",
+          fechas: [fechaAjustada],
           ids: [reserva.id],
+          diaSemana: DIAS_SEMANA_REVERSO[fechaAjustada.getDay()],
+          laboratorios: reserva.laboratorios || { nombre: "N/A" }
         };
       } else {
-        acc[key].fechas.push(new Date(reserva.fecha));
-        acc[key].ids.push(reserva.id);
+        // Solo agregar si es una fecha nueva
+        const fechaYaExiste = acc[key].fechas.some(f => 
+          f.toISOString().split('T')[0] === fechaAjustada.toISOString().split('T')[0]
+        );
+  
+        if (!fechaYaExiste) {
+          acc[key].fechas.push(fechaAjustada);
+          acc[key].ids.push(reserva.id);
+          acc[key].fechas.sort((a, b) => a - b);
+  
+          // Combinar correos únicos
+          const nuevosCorreos = usuariosInfo
+            .map(ru => ru.usuarios?.correo?.trim())
+            .filter(Boolean);
+          
+          const correosExistentes = acc[key].correos.split(', ');
+          const todosCorreos = [...correosExistentes, ...nuevosCorreos];
+          acc[key].correos = [...new Set(todosCorreos)].join(', ');
+        }
       }
+  
       return acc;
     }, {});
   
-    setReservasAgrupadas(Object.values(agrupadas));
+    // Ordenar por fecha más reciente
+    const resultado = Object.values(agrupadas).sort((a, b) => 
+      b.fechas[0] - a.fechas[0]
+    );
+  
+    setReservasAgrupadas(resultado);
   }
-
   const toggleReserva = (grupo) => {
     if (reservaExpandida === grupo) {
       setReservaExpandida(null);
@@ -291,6 +357,16 @@ export default function DashboardReservas() {
         <h2 className="text-xl font-semibold mb-4 text-gray-700">Gráfico de Reservas</h2>
         <GraficaReservas />
       </div>
+      <div>
+      <button
+        onClick={() => setShowStats(!showStats)}
+        className="mb-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+      >
+        {showStats ? 'Ocultar Estadísticas' : 'Mostrar Estadísticas'}
+      </button>
+      
+      {showStats && memoizedStats}
+    </div>
 
       {/* Sección de filtros y tabla */}
       <div className="p-6 bg-white rounded-lg shadow-md">

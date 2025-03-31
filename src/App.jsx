@@ -52,7 +52,8 @@ function App() {
             <Route path="crear-reserva" element={<CrearReserva />} />
             <Route path="mis-reservas" element={<MisReservas />} />
             <Route path="calendario" element={<Calendario />} />
-            <Route path="incidente" element={<PorcentajeUso />} />
+            <Route path="incidente" element={<Incidente />} />
+            <Route path="uso" element={<PorcentajeUso />} />
             {/* Ruta protegida */}
             <Route element={<ProtectedRoute correo={correo} />}>
               <Route path="admin" element={<Dashboard />} />
