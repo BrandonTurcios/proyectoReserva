@@ -23,13 +23,14 @@ export default function CrearReserva() {
   const [showPopup, setShowPopup] = useState(false);
   const [error, setError] = useState("");
   const [error2, setError2] = useState("");
-  const [habilitado,setHabilitado] = useState(false);
+  const [habilitado, setHabilitado] = useState(false);
   const [esEstudiante, setEsEstudiante] = useState(false);
   const [repetirDias, setRepetirDias] = useState(false);
   const [aceptaReglamento, setAceptaReglamento] = useState(false);
   const [mostrarReglamento, setMostrarReglamento] = useState(false);
-  const [reglamentoLeido, setReglamentoLeido] = useState(false); // Nuevo estado
-
+  const [reglamentoLeido, setReglamentoLeido] = useState(false);
+  // Nuevo estado para controlar el estado de carga
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const emailFromStorage = localStorage.getItem("email");
@@ -173,6 +174,7 @@ export default function CrearReserva() {
         : []
     );
   };
+  
   const handleIntegranteChange = (index, field, value) => {
     const updatedIntegrantes = [...integrantes];
     updatedIntegrantes[index][field] = value;
@@ -181,9 +183,11 @@ export default function CrearReserva() {
 
   const getDiaSemana = (fecha) => fecha.getDay(); // Devuelve el índice del día
 
-
   const handleSubmit = async (e) => {
     e.preventDefault();
+  
+    // Evitar múltiples envíos si ya está en proceso
+    if (isSubmitting) return;
   
     if (perfil === "Estudiante" && horariosSeleccionados.length > 2) {
       setError("Los estudiantes solo pueden seleccionar hasta 2 horarios.");
@@ -194,7 +198,9 @@ export default function CrearReserva() {
       return;
     }
    
-
+    // Activar el estado de envío
+    setIsSubmitting(true);
+    
     try {
       // Declarar diasReservaciones aquí, antes de usarla
       let diasReservaciones = [];
@@ -203,6 +209,7 @@ export default function CrearReserva() {
       if (esEstudiante || !repetirDias) {
         if (!fechaReservacion) {
           setError("Debes seleccionar una fecha de reservación.");
+          setIsSubmitting(false); // Desactivar el estado de envío en caso de error
           return;
         }
         diasReservaciones.push(fechaReservacion);
@@ -245,6 +252,7 @@ export default function CrearReserva() {
   
           if (limiteExcedido) {
             setError(mensaje);
+            setIsSubmitting(false); // Desactivar el estado de envío en caso de error
             return; // No permitir la creación de la reserva
           }
         }
@@ -265,10 +273,12 @@ export default function CrearReserva() {
   
       if (usuarioError) {
         console.error("Error al insertar usuario:", usuarioError);
+        setIsSubmitting(false); // Desactivar el estado de envío en caso de error
         throw new Error("Error al insertar usuario");
       }
   
       if (!usuarioData || usuarioData.length === 0) {
+        setIsSubmitting(false); // Desactivar el estado de envío en caso de error
         throw new Error("No se pudo insertar el usuario o la respuesta está vacía");
       }
   
@@ -289,11 +299,13 @@ export default function CrearReserva() {
   
         if (reservacionError) {
           console.error("Error al insertar reserva:", reservacionError);
+          setIsSubmitting(false); // Desactivar el estado de envío en caso de error
           return;
         }
   
         if (!reservacionData || reservacionData.length === 0) {
           console.error("No se pudo insertar la reserva o la respuesta está vacía");
+          setIsSubmitting(false); // Desactivar el estado de envío en caso de error
           return;
         }
   
@@ -323,10 +335,12 @@ export default function CrearReserva() {
   
             if (integranteError) {
               console.error("Error al insertar integrante:", integranteError);
+              setIsSubmitting(false); // Desactivar el estado de envío en caso de error
               throw new Error("Error al insertar integrante");
             }
   
             if (!integranteData || integranteData.length === 0) {
+              setIsSubmitting(false); // Desactivar el estado de envío en caso de error
               throw new Error("No se pudo insertar el integrante o la respuesta está vacía");
             }
   
@@ -343,6 +357,7 @@ export default function CrearReserva() {
       setShowPopup(true);
       setTimeout(() => setShowPopup(false), 2000);
   
+      // Limpiar el formulario
       setPerfil("");
       setCantidadUsuarios(0);
       setIntegrantes([]);
@@ -354,8 +369,14 @@ export default function CrearReserva() {
       setFechaInicio("");
       setFechaFin("");
       setLaboratorioId(0);
+      setAceptaReglamento(false);
+      setReglamentoLeido(false);
+      
     } catch (error) {
       console.error("Error al crear la reserva:", error);
+    } finally {
+      // Desactivar el estado de envío cuando se completa el proceso
+      setIsSubmitting(false);
     }
   };
 
@@ -376,6 +397,7 @@ export default function CrearReserva() {
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
               value={laboratorioId}
               required
+              disabled={isSubmitting}
               onChange={(e) => setLaboratorioId(e.target.value)}
             >
               <option value="">Seleccione un laboratorio</option>
@@ -395,7 +417,7 @@ export default function CrearReserva() {
               value={perfil}
               onChange={handlePerfilChange}
               required
-              
+              disabled={isSubmitting}
             >
               <option value="">Seleccione un perfil</option>
               <option value="Estudiante">Estudiante</option>
@@ -414,7 +436,7 @@ export default function CrearReserva() {
               value={motivoUso}
               onChange={(e) => setMotivoUso(e.target.value)}
               required
-              disabled={!habilitado}
+              disabled={!habilitado || isSubmitting}
             ></textarea>
           </div>
 
@@ -425,7 +447,7 @@ export default function CrearReserva() {
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
               value={nombre}
               required
-              disabled={!habilitado}
+              disabled={!habilitado || isSubmitting}
               onChange={(e) => setNombre(e.target.value)}
             />
           </div>
@@ -439,7 +461,7 @@ export default function CrearReserva() {
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
               value={numeroCuenta}
               required
-              disabled={!habilitado}
+              disabled={!habilitado || isSubmitting}
               onChange={(e) => setNumeroCuenta(e.target.value)}
             />
           </div>
@@ -466,6 +488,7 @@ export default function CrearReserva() {
       className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
       value={cantidadUsuarios}
       required
+      disabled={isSubmitting}
       onChange={handleCantidadChange}
       min={0} // Permitir 0 como valor mínimo
       max={19}
@@ -478,6 +501,7 @@ export default function CrearReserva() {
               type="text"
               placeholder={`Nombre del integrante ${index + 1}`}
               className="w-full sm:w-auto flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
+              disabled={isSubmitting}
               onChange={(e) =>
                 handleIntegranteChange(index, "nombre", e.target.value)
               }
@@ -486,6 +510,7 @@ export default function CrearReserva() {
               type="text"
               placeholder="Número de cuenta"
               className="w-full sm:w-auto flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
+              disabled={isSubmitting}
               onChange={(e) =>
                 handleIntegranteChange(index, "numero_cuenta", e.target.value)
               }
@@ -504,7 +529,7 @@ export default function CrearReserva() {
       <input
         type="checkbox"
         checked={repetirDias}
-        disabled={!habilitado}
+        disabled={!habilitado || isSubmitting}
         onChange={(e) => setRepetirDias(e.target.checked)}
         className="mr-2"
       />
@@ -526,7 +551,7 @@ export default function CrearReserva() {
         value={dia}
         checked={diasSeleccionados.includes(dia)}
         onChange={handleDiasChange}
-        disabled={!habilitado}
+        disabled={!habilitado || isSubmitting}
         className="peer hidden"
       />
       <div className="w-5 h-5 flex items-center justify-center border-2 border-gray-400 rounded-md 
@@ -563,7 +588,7 @@ export default function CrearReserva() {
         className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
         value={fechaInicio}
         onChange={(e) => setFechaInicio(e.target.value)}
-        disabled={!habilitado}
+        disabled={!habilitado || isSubmitting}
       />
     </div>
 
@@ -575,7 +600,7 @@ export default function CrearReserva() {
         type="date"
         className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
         value={fechaFin}
-        disabled={!habilitado}
+        disabled={!habilitado || isSubmitting}
         onChange={(e) => setFechaFin(e.target.value)}
       />
     </div>
@@ -588,8 +613,7 @@ export default function CrearReserva() {
             </label>
             <input
               type="date"
-              
-              disabled={!habilitado}
+              disabled={!habilitado || isSubmitting}
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
               value={fechaReservacion}
               onChange={(e) => setFechaReservacion(e.target.value)}
@@ -600,7 +624,6 @@ export default function CrearReserva() {
             <div>
               <label className="block font-medium text-gray-700">Horario</label>
               <Select
-              
                 options={horarios.map((horario) => ({
                   value: horario.id,
                   label: horario.horario,
@@ -608,7 +631,7 @@ export default function CrearReserva() {
                 isMulti
                 onChange={handleHorarioChange}
                 isSearchable={false}
-                isDisabled={!habilitado}
+                isDisabled={!habilitado || isSubmitting}
                 value={horariosSeleccionados
                   .map((id) => {
                     const horario = horarios.find((h) => h.id === id);
@@ -617,7 +640,6 @@ export default function CrearReserva() {
                       : null;
                   })
                   .filter(Boolean)}
-                  
               />
 
               {error && <p className="text-red-500">{error}</p>}
@@ -644,7 +666,7 @@ export default function CrearReserva() {
           }
           setAceptaReglamento(e.target.checked);
         }}
-        disabled={!reglamentoLeido}
+        disabled={!reglamentoLeido || isSubmitting}
       />
     </div>
     
@@ -704,6 +726,7 @@ export default function CrearReserva() {
                     </ul>
                   </section>
 
+                  {/* Resto del reglamento sin cambios... */}
                   <section className="mb-6">
                     <h4 className="font-bold text-lg mb-2">2. Uso de Herramientas y Equipos:</h4>
                     <p className="font-semibold mb-1">• Inspección Previa:</p>
@@ -814,20 +837,42 @@ export default function CrearReserva() {
   </div>
 )}
 
-
-
-
-
-
-
-
-
-
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+            className={`w-full py-2 rounded flex items-center justify-center transition-colors ${
+              isSubmitting 
+                ? "bg-blue-400 cursor-not-allowed" 
+                : "bg-blue-600 hover:bg-blue-700 text-white"
+            }`}
+            disabled={isSubmitting}
           >
-            Enviar
+            {isSubmitting ? (
+              <>
+                <svg 
+                  className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  fill="none" 
+                  viewBox="0 0 24 24"
+                >
+                  <circle 
+                    className="opacity-25" 
+                    cx="12" 
+                    cy="12" 
+                    r="10" 
+                    stroke="currentColor" 
+                    strokeWidth="4"
+                  ></circle>
+                  <path 
+                    className="opacity-75" 
+                    fill="currentColor" 
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+                Procesando...
+              </>
+            ) : (
+              "Enviar"
+            )}
           </button>
 
         </form>
