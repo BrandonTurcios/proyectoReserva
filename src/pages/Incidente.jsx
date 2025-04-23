@@ -12,7 +12,7 @@ const Incidente = () => {
   const [userEmail, setUserEmail] = useState("");
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
+  const PWAPPS = import.meta.env.VITE_POWERAPPS_INCIDENTE;
   // Obtener email y laboratorios al cargar el componente
   useEffect(() => {
     const email = localStorage.getItem("email");
@@ -95,7 +95,7 @@ const Incidente = () => {
       };
 
       await axios.post(
-        "https://prod-172.westus.logic.azure.com:443/workflows/31455ef78b6e4f719ec231dafc009d70/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Ocnhjq2FTPz1IeqC_G1Q8OBJXXDJdJZHwBqtdU1fQUA",
+        PWAPPS,
         datos
       );
 
