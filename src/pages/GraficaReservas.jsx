@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState,memo } from "react";
 import { supabase } from "../supabaseClient";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from "recharts";
 
-export default function GraficaReservas() {
+const GraficaReservas= memo(() => {
   const [datosGrafica, setDatosGrafica] = useState([]);
   const [isFullScreen, setIsFullScreen] = useState(false);
 
@@ -108,4 +108,6 @@ export default function GraficaReservas() {
       </ResponsiveContainer>
     </div>
   );
-}
+});
+
+export default  GraficaReservas;

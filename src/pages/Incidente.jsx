@@ -67,7 +67,17 @@ const Incidente = () => {
       if (!labSeleccionado) {
         throw new Error("Laboratorio no encontrado");
       }
+      const { error: supabaseError } = await supabase
+      .from('incidentes')
+      .insert({
+        laboratorio_id: labSeleccionado.id,
+        laboratorio_nombre: labSeleccionado.nombre,
+        descripcion: descripcion.trim(),
+        usuario_email: userEmail
+        // fecha_hora se genera automáticamente
+      });
 
+    if (supabaseError) throw supabaseError;
       const convertirImagen = (archivo) => {
         return new Promise((resolve, reject) => {
           const reader = new FileReader();

@@ -5,6 +5,7 @@ import "react-calendar/dist/Calendar.css";
 import GraficaReservas from "./GraficaReservas"
 import PorcentajeUso
  from "./PorcentajeUso";
+import IncidentesTabla from "./IncidentesTabla";
 
 export default function DashboardReservas() {
   const [reservas, setReservas] = useState([]);
@@ -35,13 +36,33 @@ export default function DashboardReservas() {
   
 
     const [showStats, setShowStats] = useState(false);
+    const [showStatsGr, setShowStatsGr] = useState(false);
+    const [showStatsIn, setShowStatsIn] = useState(false);
     
     // Memoizamos el componente para preservar su estado
     const memoizedStats = useMemo(() => (
       <div className="mb-8 p-6 bg-white rounded-lg shadow-md">
         <PorcentajeUso />
       </div>
-    ), []);
+      
+    )
+    , []);
+
+    const memoizedStatsGr = useMemo(() => (
+      <div className="mb-8 p-6 bg-white rounded-lg shadow-md">
+        <GraficaReservas />
+      </div>
+      
+    )
+    , []);
+
+    const memoizedStatsIn = useMemo(() => (
+      <div className="mb-8 p-6 bg-white rounded-lg shadow-md">
+        <IncidentesTabla />
+      </div>
+      
+    )
+    , []);
 
 
   async function obtenerReservas() {
@@ -348,24 +369,44 @@ export default function DashboardReservas() {
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
-      <h1 className="text-3xl font-bold mb-6 text-center text-gray-800">
-        Dashboard de Reservas
-      </h1>
+    <h1 className="text-4xl font-bold mb-6 text-center text-gray-800">
+      Dashboard de Reservas
+    </h1>
 
-      {/* Sección del gráfico */}
-      <div className="mb-8 p-6 bg-white rounded-lg shadow-md">
-        <h2 className="text-xl font-semibold mb-4 text-gray-700">Gráfico de Reservas</h2>
-        <GraficaReservas />
+    {/* Contenedor de botones modificado */}
+    <div className="flex flex-col items-center gap-4 p-4">
+      {/* Botón 1 - Gráfica de Reservas */}
+      <div className="w-full text-center">
+        <button
+          onClick={() => setShowStatsGr(!showStatsGr)}
+          className="w-full mb-2 px-6 py-3 bg-cyan-600 text-white rounded-lg hover:bg-[#4D4DFF] transition-colors text-lg"
+        >
+          {showStatsGr ? 'Ocultar Gráfica de Reservas Aprobadas' : 'Mostrar Gráfica de Reservas Aprobadas'}
+        </button>
+        {showStatsGr && <div className="w-full">{memoizedStatsGr}</div>}
       </div>
-      <div>
-      <button
-        onClick={() => setShowStats(!showStats)}
-        className="mb-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-      >
-        {showStats ? 'Ocultar Estadísticas' : 'Mostrar Estadísticas'}
-      </button>
-      
-      {showStats && memoizedStats}
+
+      {/* Botón 2 - Estadísticas */}
+      <div className="w-full text-center">
+        <button
+          onClick={() => setShowStats(!showStats)}
+          className="w-full mb-2 px-6 py-3 bg-[#4B9CD3] text-white rounded-lg hover:bg-[#4D4DFF] transition-colors text-lg"
+        >
+          {showStats ? 'Ocultar Porcentajes de Uso' : 'Mostrar Porcentajes de Uso'}
+        </button>
+        {showStats && <div className="w-full">{memoizedStats}</div>}
+      </div>
+
+      {/* Botón 3 - Incidentes */}
+      <div className="w-full text-center">
+        <button
+          onClick={() => setShowStatsIn(!showStatsIn)}
+          className="w-full mb-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-[#4D4DFF] transition-colors text-lg"
+        >
+          {showStatsIn ? 'Ocultar Incidentes' : 'Mostrar Incidentes'}
+        </button>
+        {showStatsIn && <div className="w-full">{memoizedStatsIn}</div>}
+      </div>
     </div>
 
       {/* Sección de filtros y tabla */}
@@ -418,7 +459,7 @@ export default function DashboardReservas() {
             </select>
           </div>
         </div>
-
+             
         {/* Tabla de reservas */}
         <div className="overflow-x-auto w-full">
           <table className="w-full bg-white shadow-lg rounded-lg border border-gray-300">
