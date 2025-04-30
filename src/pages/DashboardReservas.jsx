@@ -65,24 +65,30 @@ export default function DashboardReservas() {
     , []);
 
 
-  async function obtenerReservas() {
-    const { data, error } = await supabase
-      .from("reservaciones")
-      .select(
-        "id, motivo_uso, cantidad_usuarios, fecha, estado, laboratorio_id, " +
-        "laboratorios(nombre), " +
-        "reservaciones_usuarios(usuario_id, usuarios(correo, nombre, tipo_usuario)), " +
-        "reservaciones_horarios(horarios(horario))"
-      )
-      .order("id", { ascending: false });
-
-    if (error) {
-      console.error("Error al obtener reservas:", error);
-    } else {
-      setReservas(data);
-      agruparReservas(data);
+    async function obtenerReservas() {
+      const { data, error } = await supabase
+        .from("reservaciones")
+        .select(`
+          id,
+          motivo_uso,
+          cantidad_usuarios,
+          fecha,
+          estado,
+          laboratorio_id,
+          grupo_id,
+          laboratorios(nombre),
+          reservaciones_usuarios(usuario_id, usuarios(correo, nombre, tipo_usuario)),
+          reservaciones_horarios(horarios(horario))
+        `)
+        .order("id", { ascending: false });
+    
+      if (error) {
+        console.error("Error al obtener reservas:", error);
+      } else {
+        setReservas(data);
+        agruparReservas(data);
+      }
     }
-  }
 
   async function obtenerLaboratorios() {
     const { data, error } = await supabase
@@ -273,38 +279,30 @@ export default function DashboardReservas() {
     };
   
     const agrupadas = reservas.reduce((acc, reserva) => {
-      // Normalización de datos básicos
-      const motivoNormalizado = reserva.motivo_uso.toLowerCase().trim();
-      const laboratorioId = reserva.laboratorio_id;
+      // Usar grupo_id como clave primaria de agrupación, o id si no existe grupo_id
+      const groupKey = reserva.grupo_id || reserva.id;
   
-      // Procesar usuarios
-      const usuariosInfo = reserva.reservaciones_usuarios || [];
-      const nombresUsuarios = usuariosInfo
-        .map(ru => ru.usuarios?.nombre?.trim())
-        .filter(Boolean)
-        .join(", ") || "Desconocido";
+      if (!acc[groupKey]) {
+        // Procesar usuarios
+        const usuariosInfo = reserva.reservaciones_usuarios || [];
+        const nombresUsuarios = usuariosInfo
+          .map(ru => ru.usuarios?.nombre?.trim())
+          .filter(Boolean)
+          .join(", ") || "Desconocido";
   
-      // Procesar horarios (ordenados)
-      const horariosInfo = reserva.reservaciones_horarios || [];
-      const horarios = horariosInfo
-        .map(rh => rh.horarios?.horario)
-        .filter(Boolean)
-        .sort()
-        .join(", ") || "No asignado";
+        // Procesar horarios (ordenados)
+        const horariosInfo = reserva.reservaciones_horarios || [];
+        const horarios = horariosInfo
+          .map(rh => rh.horarios?.horario)
+          .filter(Boolean)
+          .sort()
+          .join(", ") || "No asignado";
   
-      // Procesar fecha con ajuste de zona horaria
-      const fechaReserva = new Date(reserva.fecha);
-      const fechaAjustada = new Date(fechaReserva.getTime() + fechaReserva.getTimezoneOffset() * 60000);
+        // Procesar fecha con ajuste de zona horaria
+        const fechaReserva = new Date(reserva.fecha);
+        const fechaAjustada = new Date(fechaReserva.getTime() + fechaReserva.getTimezoneOffset() * 60000);
   
-      // CLAVE DE AGRUPACIÓN SIMPLIFICADA (lo más importante primero)
-      const key = [
-        motivoNormalizado,
-        laboratorioId,
-        nombresUsuarios.toLowerCase()
-      ].join('|');
-  
-      if (!acc[key]) {
-        acc[key] = {
+        acc[groupKey] = {
           ...reserva,
           correos: usuariosInfo
             .map(ru => ru.usuarios?.correo?.trim())
@@ -323,23 +321,27 @@ export default function DashboardReservas() {
         };
       } else {
         // Solo agregar si es una fecha nueva
-        const fechaYaExiste = acc[key].fechas.some(f => 
+        const fechaReserva = new Date(reserva.fecha);
+        const fechaAjustada = new Date(fechaReserva.getTime() + fechaReserva.getTimezoneOffset() * 60000);
+        
+        const fechaYaExiste = acc[groupKey].fechas.some(f => 
           f.toISOString().split('T')[0] === fechaAjustada.toISOString().split('T')[0]
         );
   
         if (!fechaYaExiste) {
-          acc[key].fechas.push(fechaAjustada);
-          acc[key].ids.push(reserva.id);
-          acc[key].fechas.sort((a, b) => a - b);
+          acc[groupKey].fechas.push(fechaAjustada);
+          acc[groupKey].ids.push(reserva.id);
+          acc[groupKey].fechas.sort((a, b) => a - b);
   
           // Combinar correos únicos
+          const usuariosInfo = reserva.reservaciones_usuarios || [];
           const nuevosCorreos = usuariosInfo
             .map(ru => ru.usuarios?.correo?.trim())
             .filter(Boolean);
           
-          const correosExistentes = acc[key].correos.split(', ');
+          const correosExistentes = acc[groupKey].correos.split(', ');
           const todosCorreos = [...correosExistentes, ...nuevosCorreos];
-          acc[key].correos = [...new Set(todosCorreos)].join(', ');
+          acc[groupKey].correos = [...new Set(todosCorreos)].join(', ');
         }
       }
   

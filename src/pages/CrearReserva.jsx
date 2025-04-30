@@ -3,6 +3,7 @@ import { supabase } from "../supabaseClient";
 import { motion } from "framer-motion";
 import "../index.css"; 
 import Select from "react-select";
+import { v4 as uuidv4 } from "uuid";
 
 export default function CrearReserva() {
   const [laboratorios, setLaboratorios] = useState([]);
@@ -239,7 +240,11 @@ export default function CrearReserva() {
           fechaActual.setDate(fechaActual.getDate() + 1);
         }
       }
-  
+      let grupoId = null;
+if (!esEstudiante && repetirDias && diasReservaciones.length > 1) {
+  grupoId = crypto.randomUUID(); // usa crypto si estás en navegador moderno
+}
+
       // Verificar límites para cada fecha y horario seleccionado
       for (const fecha of diasReservaciones) {
         for (const horarioId of horariosSeleccionados) {
@@ -294,6 +299,7 @@ export default function CrearReserva() {
             fecha: fecha,
             dias_repeticion: diasSeleccionados.join(", "),
             laboratorio_id: laboratorioId,
+            grupo_id: grupoId,
           })
           .select();
   
