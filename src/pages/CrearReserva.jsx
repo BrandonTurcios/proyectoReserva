@@ -184,6 +184,21 @@ export default function CrearReserva() {
 
   const getDiaSemana = (fecha) => fecha.getDay(); // Devuelve el índice del día
 
+  // Función para verificar si ya existe una reserva para el mismo laboratorio, fecha y horario
+  async function existeReserva(laboratorioId, fecha, horarioId) {
+    const { data, error } = await supabase
+      .from("reservaciones")
+      .select(`id, reservaciones_horarios!inner (horario_id)`)
+      .eq("laboratorio_id", laboratorioId)
+      .eq("fecha", fecha)
+      .eq("reservaciones_horarios.horario_id", horarioId);
+    if (error) {
+      console.error("Error al verificar existencia de reserva:", error);
+      return false;
+    }
+    return data && data.length > 0;
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault();
   
@@ -245,6 +260,18 @@ if (!esEstudiante && repetirDias && diasReservaciones.length > 1) {
   grupoId = crypto.randomUUID(); // usa crypto si estás en navegador moderno
 }
 
+      // Verificar existencia de reserva para cada fecha y horario seleccionado
+      for (const fecha of diasReservaciones) {
+        for (const horarioId of horariosSeleccionados) {
+          const yaExiste = await existeReserva(laboratorioId, fecha, horarioId);
+          if (yaExiste) {
+            setError("Ya existe una reserva para este laboratorio, fecha y horario.");
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      }
+  
       // Verificar límites para cada fecha y horario seleccionado
       for (const fecha of diasReservaciones) {
         for (const horarioId of horariosSeleccionados) {
