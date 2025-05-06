@@ -89,7 +89,7 @@ export default function CrearReserva() {
       return { limiteExcedido: false, mensaje: "" };
     }
   
-    // Contar reservas de alumnos y docentes
+    // Contar reservas de alumnos y docentes/administrativos
     let reservasAlumnos = 0;
     let reservasDocentes = 0;
     let reservasAdministrativo = 0;
@@ -100,34 +100,40 @@ export default function CrearReserva() {
         reservasAlumnos++;
       } else if (tipoUsuarioReserva === "Docente") {
         reservasDocentes++;
-      }
-      else if (tipoUsuarioReserva === "Administrativo") {
+      } else if (tipoUsuarioReserva === "Administrativo") {
         reservasAdministrativo++;
       }
     });
-  
-    // Verificar límites
-    if (reservasAlumnos >= 20) {
-      return {
-        limiteExcedido: true,
-        mensaje: "Ya hay 20 reservas de alumnos aprobadas para este horario y laboratorio.",
-      };
+
+    // Lógica de exclusividad y límites
+    if (tipoUsuario === "Estudiante") {
+      if (reservasDocentes > 0 || reservasAdministrativo > 0) {
+        return {
+          limiteExcedido: true,
+          mensaje: "No puedes reservar porque ya hay una reserva de docente o administrativo para este horario y laboratorio.",
+        };
+      }
+      if (reservasAlumnos >= 20) {
+        return {
+          limiteExcedido: true,
+          mensaje: "Ya hay 20 reservas de alumnos aprobadas para este horario y laboratorio.",
+        };
+      }
+      // Si no hay docente/administrativo y hay menos de 20 alumnos, permitir
+      return { limiteExcedido: false, mensaje: "" };
+    } else if (tipoUsuario === "Docente" || tipoUsuario === "Administrativo") {
+      if (reservasAlumnos > 0 || reservasDocentes > 0 || reservasAdministrativo > 0) {
+        return {
+          limiteExcedido: true,
+          mensaje: "No puedes reservar porque ya hay una reserva de estudiante, docente o administrativo para este horario y laboratorio.",
+        };
+      }
+      // Si no hay ninguno, permitir
+      return { limiteExcedido: false, mensaje: "" };
     }
-  
-    if (reservasDocentes >= 1) {
-      return {
-        limiteExcedido: true,
-        mensaje: "Ya hay una reserva de docente aprobada para este horario y laboratorio.",
-      };
-    }
-    if (reservasAdministrativo >= 1) {
-      return {
-        limiteExcedido: true,
-        mensaje: "Ya hay una reserva de personal administrativo aprobada para este horario y laboratorio.",
-      };
-    }
-  
-    return { limiteExcedido: false, mensaje: "" }; // No se ha alcanzado ningún límite
+
+    // Por defecto, permitir
+    return { limiteExcedido: false, mensaje: "" };
   }
 
   const handleDiasChange = (e) => {
@@ -171,7 +177,7 @@ export default function CrearReserva() {
     // Solo generar integrantes adicionales si la cantidad es mayor que 0
     setIntegrantes(
       value > 0
-        ? Array(value).fill({ nombre: "", numero_cuenta: ""})
+        ? Array.from({ length: value }, () => ({ nombre: "", numero_cuenta: "" }))
         : []
     );
   };
@@ -260,18 +266,6 @@ if (!esEstudiante && repetirDias && diasReservaciones.length > 1) {
   grupoId = crypto.randomUUID(); // usa crypto si estás en navegador moderno
 }
 
-      // Verificar existencia de reserva para cada fecha y horario seleccionado
-      for (const fecha of diasReservaciones) {
-        for (const horarioId of horariosSeleccionados) {
-          const yaExiste = await existeReserva(laboratorioId, fecha, horarioId);
-          if (yaExiste) {
-            setError("Ya existe una reserva para este laboratorio, fecha y horario.");
-            setIsSubmitting(false);
-            return;
-          }
-        }
-      }
-  
       // Verificar límites para cada fecha y horario seleccionado
       for (const fecha of diasReservaciones) {
         for (const horarioId of horariosSeleccionados) {

@@ -283,73 +283,73 @@ export default function DashboardReservas() {
       const groupKey = reserva.grupo_id || reserva.id;
   
       if (!acc[groupKey]) {
-        // Procesar usuarios
+        // Procesar usuarios, usando id para evitar duplicados reales
         const usuariosInfo = reserva.reservaciones_usuarios || [];
-        const nombresUsuarios = usuariosInfo
-          .map(ru => ru.usuarios?.nombre?.trim())
-          .filter(Boolean)
-          .join(", ") || "Desconocido";
-  
-        // Procesar horarios (ordenados)
-        const horariosInfo = reserva.reservaciones_horarios || [];
-        const horarios = horariosInfo
-          .map(rh => rh.horarios?.horario)
-          .filter(Boolean)
-          .sort()
-          .join(", ") || "No asignado";
-  
-        // Procesar fecha con ajuste de zona horaria
-        const fechaReserva = new Date(reserva.fecha);
-        const fechaAjustada = new Date(fechaReserva.getTime() + fechaReserva.getTimezoneOffset() * 60000);
-  
         acc[groupKey] = {
           ...reserva,
+          usuariosUnicos: usuariosInfo
+            .map(ru => ({
+              id: ru.usuario_id,
+              nombre: ru.usuarios?.nombre?.trim()
+            }))
+            .filter(u => u.id && u.nombre),
           correos: usuariosInfo
             .map(ru => ru.usuarios?.correo?.trim())
             .filter(Boolean)
             .join(", ") || "N/A",
-          horarios,
-          nombresUsuarios,
+          horarios: (reserva.reservaciones_horarios || [])
+            .map(rh => rh.horarios?.horario)
+            .filter(Boolean)
+            .sort()
+            .join(", ") || "No asignado",
           tiposUsuarios: usuariosInfo
             .map(ru => ru.usuarios?.tipo_usuario)
             .filter(Boolean)
             .join(", ") || "N/A",
-          fechas: [fechaAjustada],
+          fechas: [new Date(reserva.fecha.getTime ? reserva.fecha.getTime() : new Date(reserva.fecha).getTime() + new Date(reserva.fecha).getTimezoneOffset() * 60000)],
           ids: [reserva.id],
-          diaSemana: DIAS_SEMANA_REVERSO[fechaAjustada.getDay()],
+          diaSemana: undefined,
           laboratorios: reserva.laboratorios || { nombre: "N/A" }
         };
       } else {
         // Solo agregar si es una fecha nueva
         const fechaReserva = new Date(reserva.fecha);
         const fechaAjustada = new Date(fechaReserva.getTime() + fechaReserva.getTimezoneOffset() * 60000);
-        
         const fechaYaExiste = acc[groupKey].fechas.some(f => 
           f.toISOString().split('T')[0] === fechaAjustada.toISOString().split('T')[0]
         );
-  
         if (!fechaYaExiste) {
           acc[groupKey].fechas.push(fechaAjustada);
           acc[groupKey].ids.push(reserva.id);
           acc[groupKey].fechas.sort((a, b) => a - b);
-  
-          // Combinar correos únicos
-          const usuariosInfo = reserva.reservaciones_usuarios || [];
-          const nuevosCorreos = usuariosInfo
-            .map(ru => ru.usuarios?.correo?.trim())
-            .filter(Boolean);
-          
-          const correosExistentes = acc[groupKey].correos.split(', ');
-          const todosCorreos = [...correosExistentes, ...nuevosCorreos];
-          acc[groupKey].correos = [...new Set(todosCorreos)].join(', ');
         }
+        // Unir usuarios únicos por id
+        const nuevosUsuarios = (reserva.reservaciones_usuarios || [])
+          .map(ru => ({
+            id: ru.usuario_id,
+            nombre: ru.usuarios?.nombre?.trim()
+          }))
+          .filter(u => u.id && u.nombre);
+        const usuariosMap = new Map(acc[groupKey].usuariosUnicos.map(u => [u.id, u]));
+        nuevosUsuarios.forEach(u => usuariosMap.set(u.id, u));
+        acc[groupKey].usuariosUnicos = Array.from(usuariosMap.values());
+        // Combinar correos únicos
+        const usuariosInfo = reserva.reservaciones_usuarios || [];
+        const nuevosCorreos = usuariosInfo
+          .map(ru => ru.usuarios?.correo?.trim())
+          .filter(Boolean);
+        const correosExistentes = acc[groupKey].correos.split(', ');
+        const todosCorreos = [...correosExistentes, ...nuevosCorreos];
+        acc[groupKey].correos = [...new Set(todosCorreos)].join(', ');
       }
-  
       return acc;
     }, {});
   
     // Ordenar por fecha más reciente
-    const resultado = Object.values(agrupadas).sort((a, b) => 
+    const resultado = Object.values(agrupadas).map(grupo => ({
+      ...grupo,
+      nombresUsuarios: grupo.usuariosUnicos.map(u => u.nombre).join(", "),
+    })).sort((a, b) => 
       b.fechas[0] - a.fechas[0]
     );
   
