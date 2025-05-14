@@ -3,9 +3,9 @@ import { supabase } from "../supabaseClient";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import GraficaReservas from "./GraficaReservas"
-import PorcentajeUso
- from "./PorcentajeUso";
+import PorcentajeUso from "./PorcentajeUso";
 import IncidentesTabla from "./IncidentesTabla";
+import * as XLSX from 'xlsx';
 
 export default function DashboardReservas() {
   const [reservas, setReservas] = useState([]);
@@ -375,6 +375,50 @@ export default function DashboardReservas() {
     }
   };
 
+  const exportarAExcel = () => {
+    // Usar todas las reservas sin filtrar
+    const datosExcel = reservasAgrupadas.map(grupo => ({
+      'Nombre': grupo.nombresUsuarios,
+      'Tipo de Usuario': grupo.tiposUsuarios,
+      'Laboratorio': grupo.laboratorios?.nombre || 'N/A',
+      'Motivo': grupo.motivo_uso,
+      'Correos': grupo.correos,
+      'Horarios': grupo.horarios,
+      'Estado': grupo.estado,
+      'Fechas': grupo.fechas.map(fecha => 
+        new Date(fecha).toLocaleDateString('es-ES', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric'
+        })
+      ).join(', ')
+    }));
+
+    // Crear un nuevo libro de Excel
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(datosExcel);
+
+    // Ajustar el ancho de las columnas
+    const wscols = [
+      {wch: 30}, // Nombre
+      {wch: 15}, // Tipo de Usuario
+      {wch: 20}, // Laboratorio
+      {wch: 40}, // Motivo
+      {wch: 30}, // Correos
+      {wch: 20}, // Horarios
+      {wch: 15}, // Estado
+      {wch: 40}  // Fechas
+    ];
+    ws['!cols'] = wscols;
+
+    // Agregar la hoja al libro
+    XLSX.utils.book_append_sheet(wb, ws, "Reservas");
+
+    // Generar el archivo Excel
+    const fechaActual = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb, `Reservas_${fechaActual}.xlsx`);
+  };
+
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
     <h1 className="text-4xl font-bold mb-6 text-center text-gray-800">
@@ -465,6 +509,15 @@ export default function DashboardReservas() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="flex items-end">
+            <button
+              onClick={exportarAExcel}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm h-[38px]"
+            >
+              Exportar a Excel
+            </button>
           </div>
         </div>
              
