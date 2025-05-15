@@ -39,18 +39,79 @@ const Incidente = () => {
     fetchLaboratorios();
   }, []);
 
-  const manejarCambioArchivos = (e) => {
-    if (isSubmitting) return; // Bloquea si está procesando
+  const comprimirImagen = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          // Calculate new dimensions while maintaining aspect ratio
+          const MAX_WIDTH = 1200;
+          const MAX_HEIGHT = 1200;
+          
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height = Math.round((height * MAX_WIDTH) / width);
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width = Math.round((width * MAX_HEIGHT) / height);
+              height = MAX_HEIGHT;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Convert to blob with reduced quality
+          canvas.toBlob(
+            (blob) => {
+              resolve(new File([blob], file.name, {
+                type: 'image/jpeg',
+                lastModified: Date.now(),
+              }));
+            },
+            'image/jpeg',
+            0.7 // Quality: 0.7 = 70% quality
+          );
+        };
+        img.onerror = reject;
+      };
+      reader.onerror = reject;
+    });
+  };
+
+  const manejarCambioArchivos = async (e) => {
+    if (isSubmitting) return;
     
     if (e.target.files.length > 5) {
       alert("Máximo 5 imágenes permitidas");
       return;
     }
-    setArchivos([...e.target.files]);
+
+    try {
+      const archivosComprimidos = await Promise.all(
+        Array.from(e.target.files).map(comprimirImagen)
+      );
+      setArchivos(archivosComprimidos);
+    } catch (error) {
+      console.error("Error al comprimir imágenes:", error);
+      alert("Error al procesar las imágenes");
+    }
   };
 
   const manejarEnvio = async () => {
-    if (isSubmitting) return; // Evita múltiples envíos
+    if (isSubmitting) return;
     
     if (!laboratorioSeleccionado) return alert("Selecciona un laboratorio");
     if (!descripcion.trim()) return alert("Escribe una descripción del incidente");
@@ -67,17 +128,18 @@ const Incidente = () => {
       if (!labSeleccionado) {
         throw new Error("Laboratorio no encontrado");
       }
-      const { error: supabaseError } = await supabase
-      .from('incidentes')
-      .insert({
-        laboratorio_id: labSeleccionado.id,
-        laboratorio_nombre: labSeleccionado.nombre,
-        descripcion: descripcion.trim(),
-        usuario_email: userEmail
-        // fecha_hora se genera automáticamente
-      });
 
-    if (supabaseError) throw supabaseError;
+      const { error: supabaseError } = await supabase
+        .from('incidentes')
+        .insert({
+          laboratorio_id: labSeleccionado.id,
+          laboratorio_nombre: labSeleccionado.nombre,
+          descripcion: descripcion.trim(),
+          usuario_email: userEmail
+        });
+
+      if (supabaseError) throw supabaseError;
+
       const convertirImagen = (archivo) => {
         return new Promise((resolve, reject) => {
           const reader = new FileReader();
@@ -104,10 +166,7 @@ const Incidente = () => {
         imagenes: imagenesBase64
       };
 
-      await axios.post(
-        PWAPPS,
-        datos
-      );
+      await axios.post(PWAPPS, datos);
 
       setShowSuccessPopup(true);
       setLaboratorioSeleccionado("");
