@@ -251,12 +251,14 @@ export default function DashboardReservas() {
   
       // Enviar correo electrónico al correo estático (AIRE AC)
       const destinatarioAC = import.meta.env.VITE_CORREO_AC;
+      const destinatarioAC2 = import.meta.env.VITE_CORREO_AC2;
       const cuerpoCorreoAC = `Se ha aprobado una nueva solicitud de reserva para el laboratorio de ${grupo.laboratorios?.nombre} por el ${grupo.tiposUsuarios}
         ${grupo.nombresUsuarios}. La reserva es en la fecha: ${fechasFormateadas} con un horario comprendido de ${grupo.horarios}.`;
       const asuntoAC = `Solicitud de reserva de ${grupo.laboratorios?.nombre}
       `;
         
       await enviarCorreo(destinatarioAC, asuntoAC, cuerpoCorreoAC);
+      await enviarCorreo(destinatarioAC2, asuntoAC, cuerpoCorreoAC);
     }
   
     // Actualizar el estado de la reserva en la base de datos
