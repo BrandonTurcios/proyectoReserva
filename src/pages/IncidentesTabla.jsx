@@ -145,6 +145,9 @@ const IncidentesTabla = memo(() => {
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Fecha y Hora
                       </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Reporte
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -197,6 +200,21 @@ const IncidentesTabla = memo(() => {
                               <FiCalendar className="flex-shrink-0 h-5 w-5 text-gray-400 mr-2" />
                               <div className="text-sm text-gray-500">{formatDate(incidente.fecha_hora)}</div>
                             </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {incidente.reporte_link ? (
+                              <a
+                                href={incidente.reporte_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 text-sm flex items-center"
+                              >
+                                <FiMaximize2 className="mr-1" size={12} />
+                                Ver Reporte
+                              </a>
+                            ) : (
+                              <span className="text-gray-400 text-sm">No disponible</span>
+                            )}
                           </td>
                         </tr>
                       ))

@@ -166,7 +166,23 @@ const Incidente = () => {
         imagenes: imagenesBase64
       };
 
-      await axios.post(PWAPPS, datos);
+      const response = await axios.post(PWAPPS, datos);
+      const reporteLink = response.data?.link; // Asumiendo que el endpoint devuelve el link en la respuesta
+
+      // Actualizar el incidente con el link del reporte
+      if (reporteLink) {
+        const { error: updateError } = await supabase
+          .from('incidentes')
+          .update({ reporte_link: reporteLink })
+          .eq('laboratorio_id', labSeleccionado.id)
+          .eq('usuario_email', userEmail)
+          .order('fecha_hora', { ascending: false })
+          .limit(1);
+
+        if (updateError) {
+          console.error("Error al actualizar el link del reporte:", updateError);
+        }
+      }
 
       setShowSuccessPopup(true);
       setLaboratorioSeleccionado("");
