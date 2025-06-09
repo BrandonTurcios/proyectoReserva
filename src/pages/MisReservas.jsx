@@ -5,7 +5,7 @@ export default function MisReservas() {
   const [reservas, setReservas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [estadoFiltro, setEstadoFiltro] = useState("EN_ESPERA");
+  const [estadoFiltro, setEstadoFiltro] = useState("TODAS");
 
   useEffect(() => {
     const fetchReservas = async () => {
@@ -15,8 +15,10 @@ export default function MisReservas() {
 
         const correo = localStorage.getItem("email");
         if (!correo) throw new Error("No se encontró el correo en localStorage");
+        
+        console.log("Correo del usuario:", correo);
 
-        // Consulta corregida con relaciones adecuadas
+        // Consulta optimizada para obtener directamente las reservas del usuario
         const { data: reservasData, error: reservasError } = await supabase
           .from("reservaciones")
           .select(`
@@ -29,24 +31,27 @@ export default function MisReservas() {
             dias_repeticion,
             grupo_id,
             laboratorios:laboratorio_id(nombre),
-            reservaciones_usuarios:reservaciones_usuarios(
-              usuarios:usuario_id(nombre, tipo_usuario, correo)
+            reservaciones_usuarios!inner(
+              usuarios!inner(
+                nombre,
+                tipo_usuario,
+                correo
+              )
             ),
-            reservaciones_horarios:reservaciones_horarios(
+            reservaciones_horarios(
               horarios:horario_id(horario)
             )
           `)
+          .eq('reservaciones_usuarios.usuarios.correo', correo)
           .order("fecha", { ascending: true });
 
         if (reservasError) throw reservasError;
 
-        // Obtener solo las reservas del usuario actual
-        const reservasUsuario = reservasData.filter(reserva => 
-          reserva.reservaciones_usuarios.some(ru => ru.usuarios?.correo === correo)
-        );
+        console.log("Reservas encontradas:", reservasData?.length || 0);
+        console.log("Datos de las reservas:", reservasData);
 
         // Agrupar por grupo_id (UUID) o por id si no hay grupo_id
-        const grupos = reservasUsuario.reduce((acc, reserva) => {
+        const grupos = reservasData.reduce((acc, reserva) => {
           const groupKey = reserva.grupo_id || reserva.id;
           
           if (!acc[groupKey]) {
@@ -82,7 +87,11 @@ export default function MisReservas() {
           grupo.fechas.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
         });
 
-        setReservas(Object.values(grupos));
+        const reservasAgrupadas = Object.values(grupos);
+        console.log("Reservas agrupadas:", reservasAgrupadas.length);
+        console.log("Detalles de las reservas agrupadas:", reservasAgrupadas);
+
+        setReservas(reservasAgrupadas);
       } catch (err) {
         console.error("Error al obtener reservas:", err);
         setError(err.message);
@@ -141,10 +150,10 @@ export default function MisReservas() {
             value={estadoFiltro}
             onChange={(e) => setEstadoFiltro(e.target.value)}
           >
+            <option value="TODAS">Todas</option>
             <option value="EN_ESPERA">En Espera</option>
             <option value="APROBADA">Aprobada</option>
             <option value="RECHAZADA">Rechazada</option>
-            <option value="TODAS">Todas</option>
           </select>
         </div>
 
