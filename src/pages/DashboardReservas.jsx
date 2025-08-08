@@ -259,6 +259,24 @@ export default function DashboardReservas() {
         
       await enviarCorreo(destinatarioAC, asuntoAC, cuerpoCorreoAC);
       await enviarCorreo(destinatarioAC2, asuntoAC, cuerpoCorreoAC);
+    }else if(nuevoEstado === 'RECHAZADA'){
+      const fechasFormateadas = grupo.fechas
+        .map((fecha) => {
+          return new Date(fecha).toLocaleDateString("es-ES", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          });
+        })
+        .join(", ");
+      // Enviar correo electrónico al usuario que hizo la reserva
+      const destinatario = grupo.correos.split(", ")[0];
+      const cuerpoCorreo = `Buen día, por este medio se le notifica que la siguiente reserva ha sido rechazada: <br>
+        Laboratorio: ${grupo.laboratorios?.nombre}<br>
+        Fecha: ${fechasFormateadas}<br>
+        Horario: ${grupo.horarios}<br>
+        Motivo: ${grupo.motivo_uso}<br>`;
+      await enviarCorreo(destinatario, "Reserva Rechazada", cuerpoCorreo);
     }
   
     // Actualizar el estado de la reserva en la base de datos
