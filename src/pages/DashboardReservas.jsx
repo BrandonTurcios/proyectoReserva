@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js';
 import React, { useEffect, useState, useMemo } from "react";
 import { supabase } from "../supabaseClient";
 import Calendar from "react-calendar";
@@ -280,11 +281,12 @@ export default function DashboardReservas() {
     }
   
     // Actualizar el estado de la reserva en la base de datos
-    const { error } = await supabase
+    const supabaseAdmin = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SERVICE_ROLE);
+
+    const { error } = await supabaseAdmin
       .from("reservaciones")
       .update({ estado: nuevoEstado })
       .in("id", ids);
-  
     if (error) {
       console.error("Error al actualizar el estado de la reserva:", error);
     } else {
