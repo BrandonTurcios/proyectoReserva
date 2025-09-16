@@ -20,7 +20,7 @@ export default function Inicio({ setCorreo }) {
       setIsOpen(true);
       return;
     }
-
+     
     const emailADMIN_1 = import.meta.env.VITE_ADMIN_1; 
     const emailADMIN_2 = import.meta.env.VITE_ADMIN_2;// Correo del admin desde variables de entorno
     if (email === emailADMIN_1 || email === emailADMIN_2) {
