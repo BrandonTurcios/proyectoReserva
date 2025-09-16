@@ -1,7 +1,8 @@
 import { Navigate, Outlet } from "react-router-dom";
 
 export default function ProtectedRoute({ correo }) {
-  const emailADMIN = import.meta.env.VITE_ADMIN;
+    const emailADMIN_1 = import.meta.env.VITE_ADMIN_1; 
+    const emailADMIN_2 = import.meta.env.VITE_ADMIN_2;
 
-  return correo === emailADMIN ? <Outlet /> : <Navigate to="/" />;
+  return correo === emailADMIN_1 || correo === emailADMIN_2 ? <Outlet /> : <Navigate to="/" />;
 }
