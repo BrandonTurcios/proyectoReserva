@@ -7,6 +7,7 @@ import GraficaReservas from "./GraficaReservas"
 import PorcentajeUso from "./PorcentajeUso";
 import IncidentesTabla from "./IncidentesTabla";
 import * as XLSX from 'xlsx';
+import { FiCheck, FiX } from 'react-icons/fi';
 
 export default function DashboardReservas() {
   const [reservas, setReservas] = useState([]);
@@ -578,29 +579,46 @@ export default function DashboardReservas() {
                       <td className="px-4 py-2">{grupo.correos}</td>
                       <td className="px-4 py-2">{grupo.horarios}</td>
                       <td className="px-4 py-2 font-semibold">{grupo.estado}</td>
-                      <td className="px-4 py-2 flex space-x-2">
-                        {grupo.estado === "EN_ESPERA" && (
-                          <>
+                      <td className="px-4 py-4">
+                        <div className="flex items-center justify-center gap-2">
+                          {grupo.estado === "EN_ESPERA" ? (
+                            <>
+                              <button
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  actualizarEstadoGrupo(grupo.ids, "APROBADA", grupo);
+                                }}
+                                className="bg-green-500 text-white px-3 py-1 rounded-lg hover:bg-green-600 transition text-xs flex items-center justify-center"
+                              >
+                                <FiCheck size={16}/>
+                              </button>
+                              
+                              <button
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  actualizarEstadoGrupo(grupo.ids, "RECHAZADA", grupo);
+                                }}
+                                className="bg-red-500 text-white px-3 py-1 rounded-lg hover:bg-red-600 transition text-xs flex items-center justify-center"
+                              >
+                                <FiX size={16}/>
+                              </button>
+                            </>
+                          ) : (
                             <button
                               onClick={(event) => {
-                                event.stopPropagation();
-                                actualizarEstadoGrupo(grupo.ids, "APROBADA", grupo);
+                                  event.stopPropagation();
+                                  actualizarEstadoGrupo(grupo.ids, grupo.estado === "APROBADA" ? "RECHAZADA" : "APROBADA", grupo);
                               }}
-                              className="bg-green-500 text-white px-3 py-1 rounded-lg hover:bg-green-600 transition text-xs"
+                              className={`${
+                                grupo.estado === "APROBADA"
+                                  ? "bg-red-500 hover:bg-red-600"
+                                  : "bg-green-500 hover:bg-green-600"
+                              } text-white px-3 py-1 rounded-lg transition text-xs flex items-center justify-center`}
                             >
-                              ✓
+                              {grupo.estado === "APROBADA" ? <FiX size={16}/> : <FiCheck size={16}/>}
                             </button>
-                            <button
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                actualizarEstadoGrupo(grupo.ids, "RECHAZADA", grupo);
-                              }}
-                              className="bg-red-500 text-white px-3 py-1 rounded-lg hover:bg-red-600 transition text-xs"
-                            >
-                              ✗
-                            </button>
-                          </>
-                        )}
+                          )}
+                        </div>
                       </td>
                     </tr>
                     {reservaExpandida === grupo && (

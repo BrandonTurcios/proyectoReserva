@@ -1,5 +1,31 @@
 import { useEffect, useState } from "react";
+import { createClient } from '@supabase/supabase-js';
 import { supabase } from "../supabaseClient";
+
+async function enviarCorreo(destinatario, asunto, cuerpo) {
+    try {
+      const response = await fetch(import.meta.env.VITE_POWERAPPS_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          destinatario: destinatario,
+          asunto: asunto,
+          cuerpo: cuerpo,
+        }),
+      });
+  
+      if (response.ok) {
+        console.log("Correo enviado correctamente a:", destinatario);
+      } else {
+        const errorData = await response.json(); // Lee la respuesta del servidor
+        console.error("Error al enviar el correo a:", destinatario, errorData);
+      }
+    } catch (error) {
+      console.error("Error en la solicitud a:", destinatario, error);
+    }
+}
 
 export default function MisReservas() {
   const [reservas, setReservas] = useState([]);
@@ -7,8 +33,7 @@ export default function MisReservas() {
   const [error, setError] = useState(null);
   const [estadoFiltro, setEstadoFiltro] = useState("TODAS");
 
-  useEffect(() => {
-    const fetchReservas = async () => {
+  const fetchReservas = async () => {
       try {
         setLoading(true);
         setError(null);
@@ -100,8 +125,63 @@ export default function MisReservas() {
       }
     };
 
+  useEffect(() => {
     fetchReservas();
   }, []);
+
+  const handleCancel = async (grupo) => {
+    try {
+      // Formatear fechas para correo
+      const fechasFormateadas = grupo.fechas
+        .map((fecha) =>
+          new Date(fecha).toLocaleDateString("es-ES", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          })
+        )
+        .join(", ");
+      
+      const cuerpoCorreo = `Buen día, por este medio se le notifica que la siguiente reserva ha sido cancelada: <br>
+        Laboratorio: ${grupo.laboratorios?.nombre}<br>
+        Fecha: ${fechasFormateadas}<br>
+        Horario: ${grupo.horarios}<br>
+        Motivo: ${grupo.motivo_uso}<br>`;
+      
+      await enviarCorreo(grupo.correo, "Reserva Cancelada", cuerpoCorreo);
+      
+      // Opcional: notificar a correos estáticos de administración
+      if(grupo.estado === "APROBADA"){
+        const destinatarioAC = import.meta.env.VITE_CORREO_AC;
+        const destinatarioAC2 = import.meta.env.VITE_CORREO_AC2;
+        const asuntoAC = `Reserva cancelada - ${grupo.laboratorios?.nombre}`;
+        const cuerpoCorreoAC = `Se ha cancelado una reserva para el laboratorio ${grupo.laboratorios?.nombre} por ${grupo.tiposUsuarios} ${grupo.nombresUsuarios}. Fecha: ${fechasFormateadas}, Horario: ${grupo.horarios}.`;
+        
+        await enviarCorreo(destinatarioAC, asuntoAC, cuerpoCorreoAC);
+        await enviarCorreo(destinatarioAC2, asuntoAC, cuerpoCorreoAC);
+      }
+      
+      const supabaseAdmin = createClient(
+        import.meta.env.VITE_SUPABASE_URL,
+        import.meta.env.VITE_SERVICE_ROLE
+      );
+    
+      const { error } = await supabaseAdmin
+        .from("reservaciones")
+        .update({ estado: "CANCELADA" })
+        .eq("id", grupo.reservaId);
+    
+      if (error) {
+        console.error("Error al cancelar la reserva:", error);
+        return;
+      }
+    
+      console.log("Reserva cancelada correctamente");
+      fetchReservas();
+    } catch (err) {
+      console.error("Error en handleCancel:", err);
+    }
+  };
 
   const reservasFiltradas = reservas.filter(res => 
     estadoFiltro === "TODAS" || res.estado === estadoFiltro
@@ -205,6 +285,13 @@ export default function MisReservas() {
                   <div className="mt-4">
                     <p className="text-gray-700 font-medium">Días de repetición:</p>
                     <p className="font-semibold">{reserva.diasRepeticion} días</p>
+                  </div>
+                )}
+                {reserva.estado !== "RECHAZADA" && (
+                  <div className="border-t-2 border-gray-300 mt-4 pt-4 flex justify-center">
+                    <button onClick={() => handleCancel(reserva)}className="bg-red-500 hover:bg-red-600 text-white font-medium px-4 py-2 rounded-md transition-colors">
+                      Cancelar Reserva
+                    </button>
                   </div>
                 )}
               </div>

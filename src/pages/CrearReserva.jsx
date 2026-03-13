@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import "../index.css"; 
 import Select from "react-select";
 import { v4 as uuidv4 } from "uuid";
+import {message} from "antd";
 
 export default function CrearReserva() {
   const [laboratorios, setLaboratorios] = useState([]);
@@ -269,17 +270,27 @@ if (!esEstudiante && repetirDias && diasReservaciones.length > 1) {
       // Verificar límites para cada fecha y horario seleccionado
       for (const fecha of diasReservaciones) {
         for (const horarioId of horariosSeleccionados) {
+        
           const { limiteExcedido, mensaje } = await verificarLimiteReservas(
             laboratorioId,
             fecha,
             horarioId,
             perfil
           );
-  
+        
+          // Si es docente NO bloquear
+          if (perfil !== "Estudiante" && limiteExcedido) {
+            message.warning(
+              "Ya hay reservas en ese horario. Tu solicitud será enviada y el administrador evaluará el caso."
+            );
+            continue;
+          }
+        
+          // Para otros perfiles sí bloquear
           if (limiteExcedido) {
             setError(mensaje);
-            setIsSubmitting(false); // Desactivar el estado de envío en caso de error
-            return; // No permitir la creación de la reserva
+            setIsSubmitting(false);
+            return;
           }
         }
       }
