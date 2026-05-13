@@ -55,6 +55,7 @@ export default function MisReservas() {
             laboratorio_id,
             dias_repeticion,
             grupo_id,
+            descripcion,
             laboratorios:laboratorio_id(nombre),
             reservaciones_usuarios!inner(
               usuarios!inner(
@@ -86,6 +87,7 @@ export default function MisReservas() {
               motivo: reserva.motivo_uso,
               laboratorio: reserva.laboratorios?.nombre || "No especificado",
               estado: reserva.estado,
+              descripcionRechazo: reserva.descripcion || "",
               diasRepeticion: reserva.dias_repeticion,
               usuario: reserva.reservaciones_usuarios[0]?.usuarios?.nombre || "Desconocido",
               tipoUsuario: reserva.reservaciones_usuarios[0]?.usuarios?.tipo_usuario || "Desconocido",
@@ -285,6 +287,12 @@ export default function MisReservas() {
                   <div className="mt-4">
                     <p className="text-gray-700 font-medium">Días de repetición:</p>
                     <p className="font-semibold">{reserva.diasRepeticion} días</p>
+                  </div>
+                )}
+                {reserva.descripcionRechazo && (
+                  <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-md">
+                    <p className="text-sm font-semibold text-red-700">Razón del rechazo</p>
+                    <p className="text-gray-700 whitespace-pre-line">{reserva.descripcionRechazo}</p>
                   </div>
                 )}
                 {reserva.estado !== "RECHAZADA" && (

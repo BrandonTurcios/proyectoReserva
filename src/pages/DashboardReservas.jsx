@@ -40,6 +40,32 @@ export default function DashboardReservas() {
     const [showStats, setShowStats] = useState(false);
     const [showStatsGr, setShowStatsGr] = useState(false);
     const [showStatsIn, setShowStatsIn] = useState(false);
+    const [rechazoModalOpen, setRechazoModalOpen] = useState(false);
+    const [grupoARechazar, setGrupoARechazar] = useState(null);
+    const [descripcionRechazo, setDescripcionRechazo] = useState("");
+    
+    const abrirModalRechazo = (grupo) => {
+      setGrupoARechazar(grupo);
+      setDescripcionRechazo("");
+      setRechazoModalOpen(true);
+    };
+
+    const cerrarModalRechazo = () => {
+      setRechazoModalOpen(false);
+      setGrupoARechazar(null);
+      setDescripcionRechazo("");
+    };
+
+    const confirmarRechazo = async () => {
+      if (!descripcionRechazo.trim()) {
+        window.alert("Por favor ingresa la descripción del rechazo.");
+        return;
+      }
+      if (grupoARechazar) {
+        await actualizarEstadoGrupo(grupoARechazar.ids, "RECHAZADA", grupoARechazar, descripcionRechazo.trim());
+      }
+      cerrarModalRechazo();
+    };
     
     // Memoizamos el componente para preservar su estado
     const memoizedStats = useMemo(() => (
@@ -78,6 +104,7 @@ export default function DashboardReservas() {
           estado,
           laboratorio_id,
           grupo_id,
+          descripcion,
           laboratorios(nombre),
           reservaciones_usuarios(usuario_id, usuarios(correo, nombre, tipo_usuario)),
           reservaciones_horarios(horarios(horario))
@@ -205,7 +232,7 @@ export default function DashboardReservas() {
   
   
 
-  async function actualizarEstadoGrupo(ids, nuevoEstado, grupo) {
+async function actualizarEstadoGrupo(ids, nuevoEstado, grupo, descripcionRechazo = "") {
     if (nuevoEstado === "APROBADA") {
       const laboratorioId = grupo.laboratorio_id;
       const fecha = grupo.fechas[0].toISOString().split("T")[0];
@@ -261,7 +288,7 @@ export default function DashboardReservas() {
         
       await enviarCorreo(destinatarioAC, asuntoAC, cuerpoCorreoAC);
       await enviarCorreo(destinatarioAC2, asuntoAC, cuerpoCorreoAC);
-    }else if(nuevoEstado === 'RECHAZADA'){
+    } else if (nuevoEstado === 'RECHAZADA') {
       const fechasFormateadas = grupo.fechas
         .map((fecha) => {
           return new Date(fecha).toLocaleDateString("es-ES", {
@@ -277,16 +304,24 @@ export default function DashboardReservas() {
         Laboratorio: ${grupo.laboratorios?.nombre}<br>
         Fecha: ${fechasFormateadas}<br>
         Horario: ${grupo.horarios}<br>
-        Motivo: ${grupo.motivo_uso}<br>`;
+        Motivo: ${grupo.motivo_uso}<br>
+        Razón del rechazo: ${descripcionRechazo || "No especificada"}<br>`;
       await enviarCorreo(destinatario, "Reserva Rechazada", cuerpoCorreo);
     }
   
     // Actualizar el estado de la reserva en la base de datos
     const supabaseAdmin = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SERVICE_ROLE);
 
-    const { error } = await supabaseAdmin
+      const updatePayload = { estado: nuevoEstado };
+      if (nuevoEstado === 'RECHAZADA') {
+        updatePayload.descripcion = descripcionRechazo;
+      } else {
+        updatePayload.descripcion = "";
+      }
+
+      const { error } = await supabaseAdmin
       .from("reservaciones")
-      .update({ estado: nuevoEstado })
+      .update(updatePayload)
       .in("id", ids);
     if (error) {
       console.error("Error al actualizar el estado de la reserva:", error);
@@ -335,6 +370,7 @@ export default function DashboardReservas() {
             .map(ru => ru.usuarios?.tipo_usuario)
             .filter(Boolean)
             .join(", ") || "N/A",
+          descripcion: reserva.descripcion || "",
           fechas: [new Date(reserva.fecha.getTime ? reserva.fecha.getTime() : new Date(reserva.fecha).getTime() + new Date(reserva.fecha).getTimezoneOffset() * 60000)],
           ids: [reserva.id],
           diaSemana: undefined,
@@ -370,6 +406,7 @@ export default function DashboardReservas() {
         const correosExistentes = acc[groupKey].correos.split(', ');
         const todosCorreos = [...correosExistentes, ...nuevosCorreos];
         acc[groupKey].correos = [...new Set(todosCorreos)].join(', ');
+        acc[groupKey].descripcion = acc[groupKey].descripcion || reserva.descripcion || "";
       }
       return acc;
     }, {});
@@ -596,26 +633,32 @@ export default function DashboardReservas() {
                               <button
                                 onClick={(event) => {
                                   event.stopPropagation();
-                                  actualizarEstadoGrupo(grupo.ids, "RECHAZADA", grupo);
+                                  abrirModalRechazo(grupo);
                                 }}
                                 className="bg-red-500 text-white px-3 py-1 rounded-lg hover:bg-red-600 transition text-xs flex items-center justify-center"
                               >
                                 <FiX size={16}/>
                               </button>
                             </>
+                          ) : grupo.estado === "APROBADA" ? (
+                            <button
+                              onClick={(event) => {
+                                  event.stopPropagation();
+                                  abrirModalRechazo(grupo);
+                              }}
+                              className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg transition text-xs flex items-center justify-center"
+                            >
+                              <FiX size={16}/>
+                            </button>
                           ) : (
                             <button
                               onClick={(event) => {
                                   event.stopPropagation();
-                                  actualizarEstadoGrupo(grupo.ids, grupo.estado === "APROBADA" ? "RECHAZADA" : "APROBADA", grupo);
+                                  actualizarEstadoGrupo(grupo.ids, "APROBADA", grupo);
                               }}
-                              className={`${
-                                grupo.estado === "APROBADA"
-                                  ? "bg-red-500 hover:bg-red-600"
-                                  : "bg-green-500 hover:bg-green-600"
-                              } text-white px-3 py-1 rounded-lg transition text-xs flex items-center justify-center`}
+                              className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-lg transition text-xs flex items-center justify-center"
                             >
-                              {grupo.estado === "APROBADA" ? <FiX size={16}/> : <FiCheck size={16}/>}
+                              <FiCheck size={16}/>
                             </button>
                           )}
                         </div>
@@ -650,6 +693,45 @@ export default function DashboardReservas() {
           </table>
         </div>
       </div>
+
+      {rechazoModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-800">Rechazar reserva</h2>
+                <p className="text-sm text-gray-600">Ingresa la descripción del rechazo antes de confirmar.</p>
+              </div>
+              <button
+                onClick={cerrarModalRechazo}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+            <textarea
+              value={descripcionRechazo}
+              onChange={(e) => setDescripcionRechazo(e.target.value)}
+              className="w-full h-32 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Describir motivo del rechazo..."
+            />
+            <div className="mt-4 flex justify-end gap-3">
+              <button
+                onClick={cerrarModalRechazo}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarRechazo}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+              >
+                Confirmar rechazo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
