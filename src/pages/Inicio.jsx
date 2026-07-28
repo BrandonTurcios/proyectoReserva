@@ -22,9 +22,14 @@ export default function Inicio({ setCorreo }) {
     }
      
     const emailADMIN_1 = import.meta.env.VITE_ADMIN_1; 
-    const emailADMIN_2 = import.meta.env.VITE_ADMIN_2;// Correo del admin desde variables de entorno
+    const emailADMIN_2 = import.meta.env.VITE_ADMIN_2;
     if (email === emailADMIN_1 || email === emailADMIN_2) {
-      setShowPasswordField(true); // Mostrar campo de contraseña
+      if (!import.meta.env.VITE_ADMIN_PASSWORD) {
+        setAlertMessage("Error de configuración: contacta al administrador.");
+        setIsOpen(true);
+        return;
+      }
+      setShowPasswordField(true);
       return;
     }
 
@@ -39,19 +44,23 @@ export default function Inicio({ setCorreo }) {
   const handlePasswordSubmit = (e) => {
     e.preventDefault();
 
-    const correctPassword = import.meta.env.VITE_ADMIN_PASSWORD; // Contraseña desde variables de entorno
+    const correctPassword = import.meta.env.VITE_ADMIN_PASSWORD;
 
     if (password === correctPassword) {
-      // Guardar el correo en localStorage
       localStorage.setItem("email", email);
       setCorreo(email);
 
-      // Redirigir a una página específica (no a la de inicio)
-      navigate("/admin"); // Cambia "/admin" por la ruta que desees
+      navigate("/admin");
     } else {
+      setPassword("");
       setAlertMessage("Contraseña incorrecta. Inténtalo de nuevo.");
       setIsOpen(true);
     }
+  };
+
+  const handleBackToEmail = () => {
+    setShowPasswordField(false);
+    setPassword("");
   };
 
   const closeModal = () => {
@@ -69,22 +78,30 @@ export default function Inicio({ setCorreo }) {
       </h1>
       <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
         <h2 className="text-3xl font-bold text-gray-800 text-center mb-6">
-          Bienvenido 👋
+          {showPasswordField ? "Acceso Administrador" : "Bienvenido 👋"}
         </h2>
         <p className="text-lg text-gray-600 text-center mb-6">
-          Por favor, ingresa tu correo electrónico institucional para continuar.
+          {showPasswordField
+            ? "Ingresa tu contraseña de administrador para continuar."
+            : "Por favor, ingresa tu correo electrónico institucional para continuar."}
         </p>
         <form
           onSubmit={showPasswordField ? handlePasswordSubmit : handleSubmit}
           className="space-y-4"
         >
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Correo electrónico"
-            className="w-full p-3 border border-gray-300 text-lg rounded-lg focus:outline-none focus:ring-2 focus:ring-[#06065c]"
-          />
+          {showPasswordField ? (
+            <div className="p-3 bg-blue-50 border border-blue-200 text-blue-800 text-lg rounded-lg text-center font-medium">
+              {email}
+            </div>
+          ) : (
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Correo electrónico"
+              className="w-full p-3 border border-gray-300 text-lg rounded-lg focus:outline-none focus:ring-2 focus:ring-[#06065c]"
+            />
+          )}
           {showPasswordField && (
             <input
               type="password"
@@ -100,6 +117,15 @@ export default function Inicio({ setCorreo }) {
           >
             {showPasswordField ? "Verificar Contraseña" : "Continuar"}
           </button>
+          {showPasswordField && (
+            <button
+              type="button"
+              onClick={handleBackToEmail}
+              className="w-full text-gray-500 text-sm py-2 hover:text-gray-700 transition-colors"
+            >
+              ← Cambiar correo
+            </button>
+          )}
         </form>
       </div>
 
