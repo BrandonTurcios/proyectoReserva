@@ -106,7 +106,7 @@ const PorcentajeUso = memo(() => {
 
     // Inicializar el estado de uso para cada laboratorio
     const inicialUso = data.reduce((acc, lab) => {
-      acc[lab.id] = { diario: 0, semanal: 0, trimestral: 0 };
+      acc[lab.id] = { diario: 0, semanal: 0 };
       return acc;
     }, {});
     setUsoLaboratorios(inicialUso);
@@ -124,7 +124,6 @@ const PorcentajeUso = memo(() => {
   /* Formulas usadas: 
   - Diario -> totalHours / (horasMax × daysWithUsage) - promedio de ocupación en los días que SÍ se usó
   - Semanal -> promedio de weekHours / (horasMax × workingDaysInThatWeek) solo en semanas con actividad
-  - Trimestral -> totalHours / (horasMax × workingDays) - ocupación total del período
   */
   async function calcularUsoParaTodos() {
     if ((!rangoFechas.inicio && !trimestre) || laboratorios.length === 0) {
@@ -166,11 +165,9 @@ const PorcentajeUso = memo(() => {
       // Calcular días hábiles en el rango (lun-sábado, domingo excluido)
       const start = new Date(fechas.inicio);
       const end = new Date(fechas.final);
-      let workingDays = 0;
       const weekWorkingDays = {};
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         if (d.getDay() === 0) continue;
-        workingDays++;
         const weekKey = getWeekKey(d);
         if (!weekWorkingDays[weekKey]) weekWorkingDays[weekKey] = 0;
         weekWorkingDays[weekKey]++;
@@ -195,7 +192,7 @@ const PorcentajeUso = memo(() => {
       laboratorios.forEach((lab) => {
         const data = labAgg[lab.id];
         if (!data || data.totalHours === 0) {
-          usoPorLab[lab.id] = { diario: 0, semanal: 0, trimestral: 0 };
+          usoPorLab[lab.id] = { diario: 0, semanal: 0 };
           return;
         }
 
@@ -211,12 +208,9 @@ const PorcentajeUso = memo(() => {
             ? (weekRates.reduce((a, b) => a + b, 0) / weekRates.length) * 100
             : 0;
 
-        const trimestral = (data.totalHours / (horasMax * workingDays)) * 100;
-
         usoPorLab[lab.id] = {
           diario: parseFloat(diario.toFixed(2)),
           semanal: parseFloat(semanal.toFixed(2)),
-          trimestral: parseFloat(trimestral.toFixed(2)),
         };
       });
 
@@ -411,36 +405,6 @@ const PorcentajeUso = memo(() => {
                     width={220}
                     height={160}
                     value={usoLaboratorios[lab.id]?.semanal || 0}
-                    maxValue={100}
-                    customSegmentStops={[0, 25, 50, 75, 100]}
-                    segmentColors={[
-                      "#FF471A",
-                      "#FFB01A",
-                      "#FFEA1A",
-                      "#A2FF1A",
-                      "#1AFF4F",
-                    ]}
-                    needleColor="#5A5A5A"
-                    needleTransitionDuration={2000}
-                    needleTransition="easeElastic"
-                    textColor="#000"
-                    valueFormat=".0f"
-                    currentValueText="Valor: ${value}%"
-                  />
-                </div>
-              </div>
-
-              {/* Velocímetro Trimestral */}
-              <div className="text-center">
-                <h4 className="text-md font-semibold mb-2">Uso Trimestral</h4>
-                <div
-                  className="relative"
-                  style={{ height: "160px", paddingLeft: "20%" }}
-                >
-                  <ReactSpeedometer
-                    width={220}
-                    height={160}
-                    value={usoLaboratorios[lab.id]?.trimestral || 0}
                     maxValue={100}
                     customSegmentStops={[0, 25, 50, 75, 100]}
                     segmentColors={[
