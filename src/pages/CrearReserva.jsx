@@ -206,6 +206,39 @@ export default function CrearReserva() {
     return data && data.length > 0;
   }
 
+  // Busca un usuario existente por correo o numero_cuenta; si no existe, lo crea
+  async function findOrCreateUser({ nombre, numero_cuenta, correo, tipo_usuario }) {
+    if (correo && correo.trim()) {
+      const { data: existing } = await supabase
+        .from("usuarios")
+        .select("id")
+        .eq("correo", correo.trim())
+        .maybeSingle();
+      if (existing) return existing.id;
+    }
+
+    if (numero_cuenta && numero_cuenta.trim()) {
+      const { data: existing } = await supabase
+        .from("usuarios")
+        .select("id")
+        .eq("numero_cuenta", numero_cuenta.trim())
+        .maybeSingle();
+      if (existing) return existing.id;
+    }
+
+    const { data: newUser, error } = await supabase
+      .from("usuarios")
+      .insert([{ nombre, numero_cuenta, correo: correo || " ", tipo_usuario }])
+      .select();
+
+    if (error || !newUser || newUser.length === 0) {
+      setIsSubmitting(false);
+      throw new Error("Error al crear usuario");
+    }
+
+    return newUser[0].id;
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault();
   
@@ -295,31 +328,13 @@ if (!esEstudiante && repetirDias && diasReservaciones.length > 1) {
         }
       }
   
-      // Insertar el usuario principal
-      const { data: usuarioData, error: usuarioError } = await supabase
-        .from("usuarios")
-        .insert([
-          {
-            nombre: nombre,
-            numero_cuenta: numeroCuenta,
-            correo: correo,
-            tipo_usuario: perfil,
-          },
-        ])
-        .select();
-  
-      if (usuarioError) {
-        console.error("Error al insertar usuario:", usuarioError);
-        setIsSubmitting(false); // Desactivar el estado de envío en caso de error
-        throw new Error("Error al insertar usuario");
-      }
-  
-      if (!usuarioData || usuarioData.length === 0) {
-        setIsSubmitting(false); // Desactivar el estado de envío en caso de error
-        throw new Error("No se pudo insertar el usuario o la respuesta está vacía");
-      }
-  
-      const usuarioId = usuarioData[0].id;
+      // Obtener o crear el usuario principal (evita duplicados por correo)
+      const usuarioId = await findOrCreateUser({
+        nombre,
+        numero_cuenta: numeroCuenta,
+        correo,
+        tipo_usuario: perfil,
+      });
   
       // Crear la reserva
       for (const fecha of diasReservaciones) {
@@ -361,30 +376,16 @@ if (!esEstudiante && repetirDias && diasReservaciones.length > 1) {
         // Insertar integrantes solo si hay integrantes adicionales
         if (cantidadUsuarios > 0) {
           for (const integrante of integrantes) {
-            const { data: integranteData, error: integranteError } = await supabase
-              .from("usuarios")
-              .insert({
-                nombre: integrante.nombre,
-                correo: " ",
-                numero_cuenta: integrante.numero_cuenta,
-                tipo_usuario: "Estudiante",
-              })
-              .select();
-  
-            if (integranteError) {
-              console.error("Error al insertar integrante:", integranteError);
-              setIsSubmitting(false); // Desactivar el estado de envío en caso de error
-              throw new Error("Error al insertar integrante");
-            }
-  
-            if (!integranteData || integranteData.length === 0) {
-              setIsSubmitting(false); // Desactivar el estado de envío en caso de error
-              throw new Error("No se pudo insertar el integrante o la respuesta está vacía");
-            }
-  
+            const integranteId = await findOrCreateUser({
+              nombre: integrante.nombre,
+              numero_cuenta: integrante.numero_cuenta,
+              correo: " ",
+              tipo_usuario: "Estudiante",
+            });
+
             usuariosInsert.push({
               reservacion_id: reservacionId,
-              usuario_id: integranteData[0].id,
+              usuario_id: integranteId,
             });
           }
         }
