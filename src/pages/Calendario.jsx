@@ -220,7 +220,7 @@ const MiCalendario = () => {
   }
 
   const handleEventoClick = (event) => {
-    if (vistaActual !== "agenda" && vistaActual !== "day" && vistaActual !== "week") {
+    if (vistaActual !== "agenda") {
       setEventoSeleccionado(event);
       document.body.classList.add("overflow-hidden");
     }
