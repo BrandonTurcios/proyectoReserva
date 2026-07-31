@@ -34,6 +34,11 @@ export default function MisReservas() {
   const [expandedGroups, setExpandedGroups] = useState(new Set());
   const [searchTerm, setSearchTerm] = useState("");
   const ITEMS_PER_PAGE = 15;
+  const inputClass =
+    "w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition";
+  const labelClass = "block text-sm font-medium text-gray-700 mb-1";
+  const sectionTitle =
+    "text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3";
 
   const fetchReservas = async () => {
       try {
@@ -193,21 +198,21 @@ export default function MisReservas() {
   const paginatedReservas = reservasFiltradas.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   const pagination = totalPages > 1 && (
-    <div className="flex items-center justify-center gap-4 my-4">
+    <div className="my-5 flex items-center justify-center gap-3">
       <button
         onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
         disabled={currentPage === 1}
-        className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
       >
         Anterior
       </button>
-      <span className="text-gray-700 font-medium">
+      <span className="text-sm font-medium text-gray-600">
         Página {currentPage} de {totalPages}
       </span>
       <button
         onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
         disabled={currentPage === totalPages}
-        className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
       >
         Siguiente
       </button>
@@ -226,190 +231,217 @@ export default function MisReservas() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <p className="text-xl">Cargando tus reservas...</p>
+      <div className="min-h-screen bg-[#06065c] flex items-center justify-center px-3 py-6">
+        <div className="w-full max-w-2xl rounded-2xl bg-white p-8 text-center shadow-2xl">
+          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600" />
+          <p className="text-sm text-gray-600">Cargando tus reservas...</p>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-          <p>Error al cargar reservas: {error}</p>
+      <div className="min-h-screen bg-[#06065c] flex items-center justify-center px-3 py-6">
+        <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl">
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700">
+            <p className="text-sm">Error al cargar reservas: {error}</p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-center mb-8 text-blue-800">Mis Reservas</h1>
-
-        {/* Filtro por estado y orden */}
-        <div className="mb-6 bg-white p-4 rounded-lg shadow space-y-4">
-          <div>
-            <label className="block text-lg font-medium text-gray-700 mb-2">
-              Buscar por motivo:
-            </label>
-            <input
-              type="text"
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Ej: clase, investigación..."
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setCurrentPage(1);
-              }}
-            />
-          </div>
-          <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1">
-            <label className="block text-lg font-medium text-gray-700 mb-2">
-              Filtrar por estado:
-            </label>
-            <select
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-              value={estadoFiltro}
-              onChange={(e) => {
-                setEstadoFiltro(e.target.value);
-                setCurrentPage(1);
-              }}
-            >
-              <option value="TODAS">Todas</option>
-              <option value="EN_ESPERA">En Espera</option>
-              <option value="APROBADA">Aprobada</option>
-              <option value="RECHAZADA">Rechazada</option>
-            </select>
-          </div>
-          <div className="flex-1">
-            <label className="block text-lg font-medium text-gray-700 mb-2">
-              Ordenar por fecha:
-            </label>
-            <select
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-              value={sortOrder}
-              onChange={(e) => {
-                setSortOrder(e.target.value);
-                setCurrentPage(1);
-              }}
-            >
-              <option value="asc">Más antigua primero</option>
-              <option value="desc">Más reciente primero</option>
-            </select>
-          </div>
-        </div>
-        </div>
-
-        {/* Listado de reservas */}
-        {reservasFiltradas.length === 0 ? (
-          <div className="bg-white p-6 rounded-lg shadow text-center">
-            <p className="text-lg text-gray-600">
-              No tienes reservas {estadoFiltro !== "TODAS" ? `con estado ${estadoFiltro}` : ""}
+    <div className="min-h-screen bg-[#06065c] flex justify-center px-3 py-6">
+      <div className="w-full max-w-4xl">
+        <div className="rounded-2xl bg-white p-4 shadow-2xl sm:p-6 md:p-8">
+          <div className="mb-6 text-center">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+              <svg
+                className="h-6 w-6"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                aria-hidden="true"
+              >
+                <rect x="3" y="4.5" width="18" height="16" rx="2" />
+                <path strokeLinecap="round" d="M16 2.5v4M8 2.5v4M3 9.5h18" />
+              </svg>
+            </div>
+            <h1 className="text-xl font-bold text-gray-800 sm:text-2xl">Mis Reservas</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              Consulta el estado y los detalles de tus reservaciones.
             </p>
           </div>
-        ) : (
-          <>
-            {pagination}
-            <div className="space-y-4">
-              {paginatedReservas.map((reserva) => (
-              <div key={reserva.grupoId || reserva.reservaId} className="bg-white p-6 rounded-lg shadow">
-                <div className="flex justify-between items-start">
-                  <div>
+
+          {/* Filtro por estado y orden */}
+          <section className="mb-6 rounded-xl border border-gray-100 bg-gray-50 p-4 sm:p-5">
+            <h2 className={sectionTitle}>Filtrar reservas</h2>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="md:col-span-3">
+                <label htmlFor="buscar-motivo" className={labelClass}>
+                  Buscar por motivo
+                </label>
+                <input
+                  id="buscar-motivo"
+                  type="text"
+                  className={inputClass}
+                  placeholder="Ej: clase, investigación..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                />
+              </div>
+              <div>
+                <label htmlFor="filtro-estado" className={labelClass}>
+                  Filtrar por estado
+                </label>
+                <select
+                  id="filtro-estado"
+                  className={inputClass}
+                  value={estadoFiltro}
+                  onChange={(e) => {
+                    setEstadoFiltro(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <option value="TODAS">Todas</option>
+                  <option value="EN_ESPERA">En Espera</option>
+                  <option value="APROBADA">Aprobada</option>
+                  <option value="RECHAZADA">Rechazada</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="orden-fecha" className={labelClass}>
+                  Ordenar por fecha
+                </label>
+                <select
+                  id="orden-fecha"
+                  className={inputClass}
+                  value={sortOrder}
+                  onChange={(e) => {
+                    setSortOrder(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <option value="asc">Más antigua primero</option>
+                  <option value="desc">Más reciente primero</option>
+                </select>
+              </div>
+            </div>
+          </section>
+
+          {/* Listado de reservas */}
+          {reservasFiltradas.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
+              <p className="text-sm text-gray-600">
+                No tienes reservas {estadoFiltro !== "TODAS" ? `con estado ${estadoFiltro}` : ""}
+              </p>
+            </div>
+          ) : (
+            <>
+              {pagination}
+              <div className="space-y-4">
+                {paginatedReservas.map((reserva) => (
+                <div key={reserva.grupoId || reserva.reservaId} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md sm:p-5">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                      <h2 className="text-xl font-semibold text-blue-700 capitalize">
-                        {reserva.motivo}
-                      </h2>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {formatFecha(reserva.fechas[0]?.fecha || "")}
+                      <div>
+                        <h2 className="text-lg font-semibold capitalize text-blue-700 sm:text-xl">
+                          {reserva.motivo}
+                        </h2>
+                        <p className="mt-1 text-sm text-gray-500">
+                          {formatFecha(reserva.fechas[0]?.fecha || "")}
+                        </p>
+                      </div>
+                      <p className="mt-2 text-sm text-gray-600">
+                        <span className="font-medium">Laboratorio:</span> {reserva.laboratorio}
                       </p>
+                      {reserva.esRecurrente && (
+                        <p className="mt-1 text-sm text-green-600">Reserva recurrente</p>
+                      )}
                     </div>
-                    <p className="text-gray-600">
-                      <span className="font-medium">Laboratorio:</span> {reserva.laboratorio}
-                    </p>
-                    {reserva.esRecurrente && (
-                      <p className="text-sm text-green-600 mt-1">
-                        Reserva recurrente
-                      </p>
+                    <span className={`self-start rounded-full px-3 py-1 text-xs font-semibold ${
+                      reserva.estado === "EN_ESPERA" ? "bg-yellow-100 text-yellow-800" :
+                      reserva.estado === "APROBADA" ? "bg-green-100 text-green-800" :
+                      "bg-red-100 text-red-800"
+                    }`}>
+                      {reserva.estado}
+                    </span>
+                  </div>
+
+                  {/* Fechas y horarios del grupo */}
+                  <div className="mt-4">
+                    {reserva.fechas.length === 1 ? (
+                      <div className="space-y-2">
+                        {reserva.fechas.map((f, i) => (
+                          <div key={i} className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm">
+                            <p className="font-medium text-gray-700">Fecha: {formatFecha(f.fecha)}</p>
+                            <p className="mt-1 text-gray-600">Horarios: {f.horarios.join(", ")}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => {
+                            const next = new Set(expandedGroups);
+                            const key = reserva.grupoId || reserva.reservaId;
+                            if (next.has(key)) next.delete(key);
+                            else next.add(key);
+                            setExpandedGroups(next);
+                          }}
+                          className="text-sm font-medium text-blue-600 transition-colors hover:text-blue-800"
+                        >
+                          {expandedGroups.has(reserva.grupoId || reserva.reservaId)
+                            ? `Ocultar fechas (${reserva.fechas.length}) ▲`
+                            : `Ver fechas (${reserva.fechas.length}) ▼`}
+                        </button>
+                        {expandedGroups.has(reserva.grupoId || reserva.reservaId) && (
+                          <div className="mt-2 space-y-2">
+                            {reserva.fechas.map((f, i) => (
+                              <div key={i} className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm">
+                                <p className="font-medium text-gray-700">Fecha: {formatFecha(f.fecha)}</p>
+                                <p className="mt-1 text-gray-600">Horarios: {f.horarios.join(", ")}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    reserva.estado === "EN_ESPERA" ? "bg-yellow-100 text-yellow-800" :
-                    reserva.estado === "APROBADA" ? "bg-green-100 text-green-800" :
-                    "bg-red-100 text-red-800"
-                  }`}>
-                    {reserva.estado}
-                  </span>
-                </div>
 
-                {/* Fechas y horarios del grupo */}
-                <div className="mt-4">
-                  {reserva.fechas.length === 1 ? (
-                    <div className="space-y-2">
-                      {reserva.fechas.map((f, i) => (
-                        <div key={i} className="border rounded p-2 bg-gray-50">
-                          <p className="text-gray-700 font-medium">Fecha: {formatFecha(f.fecha)}</p>
-                          <p className="text-gray-700">Horarios: {f.horarios.join(", ")}</p>
-                        </div>
-                      ))}
+                  {reserva.diasRepeticion > 0 && (
+                    <div className="mt-4 text-sm">
+                      <p className="font-medium text-gray-700">Días de repetición:</p>
+                      <p className="font-semibold text-gray-800">{reserva.diasRepeticion} días</p>
                     </div>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => {
-                          const next = new Set(expandedGroups);
-                          const key = reserva.grupoId || reserva.reservaId;
-                          if (next.has(key)) next.delete(key);
-                          else next.add(key);
-                          setExpandedGroups(next);
-                        }}
-                        className="text-blue-600 hover:text-blue-800 font-medium text-sm underline"
-                      >
-                        {expandedGroups.has(reserva.grupoId || reserva.reservaId)
-                          ? `Ocultar fechas (${reserva.fechas.length}) ▲`
-                          : `Ver fechas (${reserva.fechas.length}) ▼`}
+                  )}
+                  {reserva.descripcionRechazo && (
+                    <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4">
+                      <p className="text-sm font-semibold text-red-700">Razón del rechazo</p>
+                      <p className="mt-1 whitespace-pre-line text-sm text-gray-700">{reserva.descripcionRechazo}</p>
+                    </div>
+                  )}
+                  {reserva.estado !== "RECHAZADA" && (
+                    <div className="mt-4 flex justify-center border-t border-gray-200 pt-4">
+                      <button onClick={() => handleCancel(reserva)} className="rounded-lg bg-red-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-600">
+                        Cancelar Reserva
                       </button>
-                      {expandedGroups.has(reserva.grupoId || reserva.reservaId) && (
-                        <div className="mt-2 space-y-2">
-                          {reserva.fechas.map((f, i) => (
-                            <div key={i} className="border rounded p-2 bg-gray-50">
-                              <p className="text-gray-700 font-medium">Fecha: {formatFecha(f.fecha)}</p>
-                              <p className="text-gray-700">Horarios: {f.horarios.join(", ")}</p>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </>
+                    </div>
                   )}
                 </div>
-
-                {reserva.diasRepeticion > 0 && (
-                  <div className="mt-4">
-                    <p className="text-gray-700 font-medium">Días de repetición:</p>
-                    <p className="font-semibold">{reserva.diasRepeticion} días</p>
-                  </div>
-                )}
-                {reserva.descripcionRechazo && (
-                  <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-md">
-                    <p className="text-sm font-semibold text-red-700">Razón del rechazo</p>
-                    <p className="text-gray-700 whitespace-pre-line">{reserva.descripcionRechazo}</p>
-                  </div>
-                )}
-                {reserva.estado !== "RECHAZADA" && (
-                  <div className="border-t-2 border-gray-300 mt-4 pt-4 flex justify-center">
-                    <button onClick={() => handleCancel(reserva)}className="bg-red-500 hover:bg-red-600 text-white font-medium px-4 py-2 rounded-md transition-colors">
-                      Cancelar Reserva
-                    </button>
-                  </div>
-                )}
+                ))}
               </div>
-              ))}
-            </div>
 
-            {pagination}
-          </>
-        )}
+              {pagination}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
