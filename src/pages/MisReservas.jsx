@@ -16,12 +16,9 @@ async function enviarCorreo(destinatario, asunto, cuerpo) {
         }),
       });
   
-      if (response.ok) {
-        console.log("Correo enviado correctamente a:", destinatario);
-      } else {
-        const errorData = await response.json(); // Lee la respuesta del servidor
-        console.error("Error al enviar el correo a:", destinatario, errorData);
-      }
+      if (response.ok) return;
+      const errorData = await response.json();
+      console.error("Error al enviar el correo a:", destinatario, errorData);
     } catch (error) {
       console.error("Error en la solicitud a:", destinatario, error);
     }
@@ -32,6 +29,11 @@ export default function MisReservas() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [estadoFiltro, setEstadoFiltro] = useState("TODAS");
+  const [sortOrder, setSortOrder] = useState("desc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [expandedGroups, setExpandedGroups] = useState(new Set());
+  const [searchTerm, setSearchTerm] = useState("");
+  const ITEMS_PER_PAGE = 15;
 
   const fetchReservas = async () => {
       try {
@@ -40,8 +42,6 @@ export default function MisReservas() {
 
         const correo = localStorage.getItem("email");
         if (!correo) throw new Error("No se encontró el correo en localStorage");
-        
-        console.log("Correo del usuario:", correo);
 
         // Consulta optimizada para obtener directamente las reservas del usuario
         const { data: reservasData, error: reservasError } = await supabase
@@ -72,9 +72,6 @@ export default function MisReservas() {
           .order("fecha", { ascending: true });
 
         if (reservasError) throw reservasError;
-
-        console.log("Reservas encontradas:", reservasData?.length || 0);
-        console.log("Datos de las reservas:", reservasData);
 
         // Agrupar por grupo_id (UUID) o por id si no hay grupo_id
         const grupos = reservasData.reduce((acc, reserva) => {
@@ -115,8 +112,6 @@ export default function MisReservas() {
         });
 
         const reservasAgrupadas = Object.values(grupos);
-        console.log("Reservas agrupadas:", reservasAgrupadas.length);
-        console.log("Detalles de las reservas agrupadas:", reservasAgrupadas);
 
         setReservas(reservasAgrupadas);
       } catch (err) {
@@ -177,16 +172,46 @@ export default function MisReservas() {
         console.error("Error al cancelar la reserva:", error);
         return;
       }
-    
-      console.log("Reserva cancelada correctamente");
+
       fetchReservas();
     } catch (err) {
       console.error("Error en handleCancel:", err);
     }
   };
 
-  const reservasFiltradas = reservas.filter(res => 
-    estadoFiltro === "TODAS" || res.estado === estadoFiltro
+  const reservasFiltradas = reservas
+    .filter(res => estadoFiltro === "TODAS" || res.estado === estadoFiltro)
+    .filter(res => !searchTerm || res.motivo.toLowerCase().includes(searchTerm.toLowerCase()))
+    .sort((a, b) => {
+      const fechaA = a.fechas[0]?.fecha ? new Date(a.fechas[0].fecha).getTime() : 0;
+      const fechaB = b.fechas[0]?.fecha ? new Date(b.fechas[0].fecha).getTime() : 0;
+      return sortOrder === "asc" ? fechaA - fechaB : fechaB - fechaA;
+    });
+
+  const totalPages = Math.ceil(reservasFiltradas.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedReservas = reservasFiltradas.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  const pagination = totalPages > 1 && (
+    <div className="flex items-center justify-center gap-4 my-4">
+      <button
+        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+        disabled={currentPage === 1}
+        className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+      >
+        Anterior
+      </button>
+      <span className="text-gray-700 font-medium">
+        Página {currentPage} de {totalPages}
+      </span>
+      <button
+        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+        disabled={currentPage === totalPages}
+        className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+      >
+        Siguiente
+      </button>
+    </div>
   );
 
   const formatFecha = (fechaStr) => {
@@ -222,21 +247,59 @@ export default function MisReservas() {
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold text-center mb-8 text-blue-800">Mis Reservas</h1>
 
-        {/* Filtro por estado */}
-        <div className="mb-6 bg-white p-4 rounded-lg shadow">
-          <label className="block text-lg font-medium text-gray-700 mb-2">
-            Filtrar por estado:
-          </label>
-          <select
-            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-            value={estadoFiltro}
-            onChange={(e) => setEstadoFiltro(e.target.value)}
-          >
-            <option value="TODAS">Todas</option>
-            <option value="EN_ESPERA">En Espera</option>
-            <option value="APROBADA">Aprobada</option>
-            <option value="RECHAZADA">Rechazada</option>
-          </select>
+        {/* Filtro por estado y orden */}
+        <div className="mb-6 bg-white p-4 rounded-lg shadow space-y-4">
+          <div>
+            <label className="block text-lg font-medium text-gray-700 mb-2">
+              Buscar por motivo:
+            </label>
+            <input
+              type="text"
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Ej: clase, investigación..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
+          </div>
+          <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1">
+            <label className="block text-lg font-medium text-gray-700 mb-2">
+              Filtrar por estado:
+            </label>
+            <select
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              value={estadoFiltro}
+              onChange={(e) => {
+                setEstadoFiltro(e.target.value);
+                setCurrentPage(1);
+              }}
+            >
+              <option value="TODAS">Todas</option>
+              <option value="EN_ESPERA">En Espera</option>
+              <option value="APROBADA">Aprobada</option>
+              <option value="RECHAZADA">Rechazada</option>
+            </select>
+          </div>
+          <div className="flex-1">
+            <label className="block text-lg font-medium text-gray-700 mb-2">
+              Ordenar por fecha:
+            </label>
+            <select
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              value={sortOrder}
+              onChange={(e) => {
+                setSortOrder(e.target.value);
+                setCurrentPage(1);
+              }}
+            >
+              <option value="asc">Más antigua primero</option>
+              <option value="desc">Más reciente primero</option>
+            </select>
+          </div>
+        </div>
         </div>
 
         {/* Listado de reservas */}
@@ -247,14 +310,21 @@ export default function MisReservas() {
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {reservasFiltradas.map((reserva) => (
+          <>
+            {pagination}
+            <div className="space-y-4">
+              {paginatedReservas.map((reserva) => (
               <div key={reserva.grupoId || reserva.reservaId} className="bg-white p-6 rounded-lg shadow">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h2 className="text-xl font-semibold text-blue-700 capitalize">
-                      {reserva.motivo}
-                    </h2>
+                    <div>
+                      <h2 className="text-xl font-semibold text-blue-700 capitalize">
+                        {reserva.motivo}
+                      </h2>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {formatFecha(reserva.fechas[0]?.fecha || "")}
+                      </p>
+                    </div>
                     <p className="text-gray-600">
                       <span className="font-medium">Laboratorio:</span> {reserva.laboratorio}
                     </p>
@@ -274,13 +344,44 @@ export default function MisReservas() {
                 </div>
 
                 {/* Fechas y horarios del grupo */}
-                <div className="mt-4 space-y-2">
-                  {reserva.fechas.map((f, i) => (
-                    <div key={i} className="border rounded p-2 bg-gray-50">
-                      <p className="text-gray-700 font-medium">Fecha: {formatFecha(f.fecha)}</p>
-                      <p className="text-gray-700">Horarios: {f.horarios.join(", ")}</p>
+                <div className="mt-4">
+                  {reserva.fechas.length === 1 ? (
+                    <div className="space-y-2">
+                      {reserva.fechas.map((f, i) => (
+                        <div key={i} className="border rounded p-2 bg-gray-50">
+                          <p className="text-gray-700 font-medium">Fecha: {formatFecha(f.fecha)}</p>
+                          <p className="text-gray-700">Horarios: {f.horarios.join(", ")}</p>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => {
+                          const next = new Set(expandedGroups);
+                          const key = reserva.grupoId || reserva.reservaId;
+                          if (next.has(key)) next.delete(key);
+                          else next.add(key);
+                          setExpandedGroups(next);
+                        }}
+                        className="text-blue-600 hover:text-blue-800 font-medium text-sm underline"
+                      >
+                        {expandedGroups.has(reserva.grupoId || reserva.reservaId)
+                          ? `Ocultar fechas (${reserva.fechas.length}) ▲`
+                          : `Ver fechas (${reserva.fechas.length}) ▼`}
+                      </button>
+                      {expandedGroups.has(reserva.grupoId || reserva.reservaId) && (
+                        <div className="mt-2 space-y-2">
+                          {reserva.fechas.map((f, i) => (
+                            <div key={i} className="border rounded p-2 bg-gray-50">
+                              <p className="text-gray-700 font-medium">Fecha: {formatFecha(f.fecha)}</p>
+                              <p className="text-gray-700">Horarios: {f.horarios.join(", ")}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
 
                 {reserva.diasRepeticion > 0 && (
@@ -303,8 +404,11 @@ export default function MisReservas() {
                   </div>
                 )}
               </div>
-            ))}
-          </div>
+              ))}
+            </div>
+
+            {pagination}
+          </>
         )}
       </div>
     </div>
