@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import es from "date-fns/locale/es";
@@ -62,15 +62,11 @@ const MiCalendario = () => {
         return;
       }
   
-      console.log("Datos crudos:", data);
-      
       // Usar la misma lógica de agrupación del dashboard
       const reservasAgrupadas = agruparReservas(data);
-      console.log("Reservas agrupadas:", reservasAgrupadas);
       
       // Convertir a eventos del calendario
       const eventos = convertirAEventos(reservasAgrupadas);
-      console.log("Eventos generados:", eventos);
       setEventos(eventos);
     };
   
@@ -240,13 +236,18 @@ const MiCalendario = () => {
           Calendario de Reservaciones
         </h1>
   
-        <div className="w-full overflow-x-auto md:overflow-visible md:p-2 rounded-xl">
+        <div className="w-full overflow-x-auto overscroll-x-contain rounded-xl md:p-2">
           <Calendar
             localizer={localizer}
             events={eventos}
             startAccessor="start"
             endAccessor="end"
-            style={{ height: "80vh", minHeight: "500px", width: "100%" }} 
+            style={{
+              height: "80vh",
+              minHeight: "500px",
+              width: "100%",
+              minWidth: "780px",
+            }}
             className="shadow-lg rounded-lg"
             messages={mensajes}
             onView={(view) => setVistaActual(view)}
