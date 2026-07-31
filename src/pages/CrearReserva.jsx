@@ -209,37 +209,18 @@ export default function CrearReserva() {
 
   const getDiaSemana = (fecha) => fecha.getDay();
 
-  async function findOrCreateUser({
+  async function createUser({
     nombre,
     numero_cuenta,
     correo,
     tipo_usuario,
   }) {
-    if (correo && correo.trim()) {
-      const { data: existing } = await supabase
-        .from("usuarios")
-        .select("id")
-        .eq("correo", correo.trim())
-        .maybeSingle();
-      if (existing) return existing.id;
-    }
-
-    if (numero_cuenta && numero_cuenta.trim()) {
-      const { data: existing } = await supabase
-        .from("usuarios")
-        .select("id")
-        .eq("numero_cuenta", numero_cuenta.trim())
-        .maybeSingle();
-      if (existing) return existing.id;
-    }
-
     const { data: newUser, error } = await supabase
       .from("usuarios")
       .insert([{ nombre, numero_cuenta, correo: correo || " ", tipo_usuario }])
       .select();
 
     if (error || !newUser || newUser.length === 0) {
-      setIsSubmitting(false);
       throw new Error("Error al crear usuario");
     }
 
@@ -327,7 +308,7 @@ export default function CrearReserva() {
         }
       }
 
-      const usuarioId = await findOrCreateUser({
+      const usuarioId = await createUser({
         nombre,
         numero_cuenta: numeroCuenta,
         correo,
@@ -377,7 +358,7 @@ export default function CrearReserva() {
 
         if (cantidadUsuarios > 0) {
           for (const integrante of integrantes) {
-            const integranteId = await findOrCreateUser({
+            const integranteId = await createUser({
               nombre: integrante.nombre,
               numero_cuenta: integrante.numero_cuenta,
               correo: " ",
