@@ -1,6 +1,6 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import fondoImg from "./fondo2.webp"; // Asegúrate de cambiar esta ruta por la ruta correcta a tu imagen
+import fondoImg from "../assets/fondo2.webp";
 
 export default function Inicio({ setCorreo }) {
   const [email, setEmail] = useState("");

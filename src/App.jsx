@@ -1,8 +1,8 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+﻿import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Suspense, lazy } from "react";
 import Layout from "./components/Layout";
-import ProtectedRoute from "./pages/ProtectedRoute"; // Importar el nuevo componente
+import ProtectedRoute from "./pages/ProtectedRoute";
 import "./index.css";
 
 const CrearReserva = lazy(() => import("./pages/CrearReserva"));
@@ -26,7 +26,7 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const images = ["/pages/fondo2.webp", "../UT2.png", "/pages/medidas.png"];
+    const images = ["/assets/fondo2.webp", "/assets/UT2.png", "/assets/medidas.webp"];
 
     const preloadImages = images.map((src) => {
       return new Promise((resolve) => {
@@ -54,7 +54,6 @@ function App() {
             <Route path="calendario" element={<Calendario />} />
             <Route path="incidente" element={<Incidente />} />
             <Route path="uso" element={<PorcentajeUso />} />
-            {/* Ruta protegida */}
             <Route element={<ProtectedRoute correo={correo} />}>
               <Route path="admin" element={<Dashboard />} />
             </Route>

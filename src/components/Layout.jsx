@@ -1,8 +1,8 @@
-import { Link, Outlet, useNavigate, useLocation } from "react-router-dom";
+﻿import { Link, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import PropTypes from "prop-types";
-import logo from "../pages/UT2.png";
+import logo from "../assets/UT2.png";
 
 const navItems = [
   { to: "/crear-reserva", icon: "➕", label: "Crear Reserva" },
