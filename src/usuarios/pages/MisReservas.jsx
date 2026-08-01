@@ -2,6 +2,19 @@ import { useEffect, useState } from "react";
 import { createClient } from '@supabase/supabase-js';
 import { supabase } from "../../shared/services/supabaseClient";
 
+function normalizarFechaReserva(fecha) {
+  const [anio, mes, dia] = String(fecha).split("T")[0].split("-").map(Number);
+  return new Date(anio, mes - 1, dia);
+}
+
+function formatearFechaISO(fecha) {
+  return [
+    fecha.getFullYear(),
+    String(fecha.getMonth() + 1).padStart(2, "0"),
+    String(fecha.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
 async function enviarCorreo(destinatario, asunto, cuerpo) {
     try {
       const response = await fetch(import.meta.env.VITE_POWERAPPS_URL, {
@@ -100,11 +113,10 @@ export default function MisReservas() {
           }
 
           // Agregar fecha y horarios (corregido el problema de la fecha)
-          const fechaCorrecta = new Date(reserva.fecha);
-          fechaCorrecta.setDate(fechaCorrecta.getDate() + 1); // Ajuste para la zona horaria
+          const fechaCorrecta = normalizarFechaReserva(reserva.fecha);
           
           acc[groupKey].fechas.push({
-            fecha: fechaCorrecta.toISOString().split('T')[0],
+            fecha: formatearFechaISO(fechaCorrecta),
             horarios: reserva.reservaciones_horarios.map(h => h.horarios?.horario).filter(Boolean).sort()
           });
 
@@ -220,7 +232,7 @@ export default function MisReservas() {
   );
 
   const formatFecha = (fechaStr) => {
-    const fecha = new Date(fechaStr);
+    const fecha = normalizarFechaReserva(fechaStr);
     return fecha.toLocaleDateString("es-ES", {
       weekday: 'long',
       year: 'numeric',
@@ -415,10 +427,10 @@ export default function MisReservas() {
                     )}
                   </div>
 
-                  {reserva.diasRepeticion > 0 && (
+                  {reserva.diasRepeticion && (
                     <div className="mt-4 text-sm">
                       <p className="font-medium text-gray-700">Días de repetición:</p>
-                      <p className="font-semibold text-gray-800">{reserva.diasRepeticion} días</p>
+                      <p className="font-semibold text-gray-800">{reserva.diasRepeticion}</p>
                     </div>
                   )}
                   {reserva.descripcionRechazo && (

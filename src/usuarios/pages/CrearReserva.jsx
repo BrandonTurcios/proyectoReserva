@@ -4,6 +4,19 @@ import { motion } from "framer-motion";
 import Select from "react-select";
 import { message } from "antd";
 
+function crearFechaLocal(fecha) {
+  const [anio, mes, dia] = fecha.split("-").map(Number);
+  return new Date(anio, mes - 1, dia);
+}
+
+function formatearFechaISO(fecha) {
+  return [
+    fecha.getFullYear(),
+    String(fecha.getMonth() + 1).padStart(2, "0"),
+    String(fecha.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
 export default function CrearReserva() {
   const [laboratorios, setLaboratorios] = useState([]);
   const [horarios, setHorarios] = useState([]);
@@ -253,28 +266,54 @@ export default function CrearReserva() {
         }
         diasReservaciones.push(fechaReservacion);
       } else {
+        if (!fechaInicio || !fechaFin) {
+          setError("Debes seleccionar el rango de fechas.");
+          setIsSubmitting(false);
+          return;
+        }
+
+        if (diasSeleccionados.length === 0) {
+          setError("Debes seleccionar al menos un día de repetición.");
+          setIsSubmitting(false);
+          return;
+        }
+
         const diasSeleccionadosIndices = diasSeleccionados.map((dia) => {
           const mapping = {
-            Lunes: 0,
-            Martes: 1,
-            Miércoles: 2,
-            Jueves: 3,
-            Viernes: 4,
-            Sábado: 5,
-            Domingo: 6,
+            Lunes: 1,
+            Martes: 2,
+            Miércoles: 3,
+            Jueves: 4,
+            Viernes: 5,
+            Sábado: 6,
+            Domingo: 0,
           };
           return mapping[dia];
         });
 
-        let fechaActual = new Date(fechaInicio);
-        const fechaFinal = new Date(fechaFin);
+        let fechaActual = crearFechaLocal(fechaInicio);
+        const fechaFinal = crearFechaLocal(fechaFin);
+
+        if (fechaActual > fechaFinal) {
+          setError(
+            "La fecha de finalización debe ser posterior a la fecha de inicio.",
+          );
+          setIsSubmitting(false);
+          return;
+        }
 
         while (fechaActual <= fechaFinal) {
           const diaSemana = getDiaSemana(fechaActual);
           if (diasSeleccionadosIndices.includes(diaSemana)) {
-            diasReservaciones.push(fechaActual.toISOString().split("T")[0]);
+            diasReservaciones.push(formatearFechaISO(fechaActual));
           }
           fechaActual.setDate(fechaActual.getDate() + 1);
+        }
+
+        if (diasReservaciones.length === 0) {
+          setError("No hay fechas que coincidan con los días seleccionados.");
+          setIsSubmitting(false);
+          return;
         }
       }
 

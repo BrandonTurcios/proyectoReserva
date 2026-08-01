@@ -32,6 +32,26 @@ const mensajes = {
   showMore: (cantidad) => `+ Ver más (${cantidad})`,
 };
 
+function normalizarFechaReserva(fecha) {
+  const [anio, mes, dia] = String(fecha).split("T")[0].split("-").map(Number);
+  return new Date(anio, mes - 1, dia);
+}
+
+function formatearFechaISO(fecha) {
+  return [
+    fecha.getFullYear(),
+    String(fecha.getMonth() + 1).padStart(2, "0"),
+    String(fecha.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function obtenerHorariosReserva(reserva) {
+  return (reserva.reservaciones_horarios || [])
+    .map((rh) => rh.horarios?.horario)
+    .filter(Boolean)
+    .sort();
+}
+
 const MiCalendario = () => {
   const [eventos, setEventos] = useState([]);
   const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
@@ -102,21 +122,41 @@ const MiCalendario = () => {
             .map(ru => ru.usuarios?.tipo_usuario)
             .filter(Boolean)
             .join(", ") || "N/A",
-          fechas: [new Date(reserva.fecha.getTime ? reserva.fecha.getTime() : new Date(reserva.fecha).getTime() + new Date(reserva.fecha).getTimezoneOffset() * 60000)],
+          fechas: [normalizarFechaReserva(reserva.fecha)],
+          horariosPorFecha: [
+            {
+              fecha: normalizarFechaReserva(reserva.fecha),
+              horarios: obtenerHorariosReserva(reserva),
+            },
+          ],
           ids: [reserva.id],
           laboratorios: reserva.laboratorios || { nombre: "N/A" }
         };
       } else {
         // Solo agregar si es una fecha nueva
-        const fechaReserva = new Date(reserva.fecha);
-        const fechaAjustada = new Date(fechaReserva.getTime() + fechaReserva.getTimezoneOffset() * 60000);
-        const fechaYaExiste = acc[groupKey].fechas.some(f => 
-          f.toISOString().split('T')[0] === fechaAjustada.toISOString().split('T')[0]
+        const fechaAjustada = normalizarFechaReserva(reserva.fecha);
+        const horariosDeReserva = obtenerHorariosReserva(reserva);
+        const fechaTexto = formatearFechaISO(fechaAjustada);
+        const fechaYaExiste = acc[groupKey].fechas.some(
+          (fecha) => formatearFechaISO(fecha) === fechaTexto,
         );
         if (!fechaYaExiste) {
           acc[groupKey].fechas.push(fechaAjustada);
+          acc[groupKey].horariosPorFecha.push({
+            fecha: fechaAjustada,
+            horarios: horariosDeReserva,
+          });
           acc[groupKey].ids.push(reserva.id);
           acc[groupKey].fechas.sort((a, b) => a - b);
+          acc[groupKey].horariosPorFecha.sort((a, b) => a.fecha - b.fecha);
+        } else {
+          const fechaConHorarios = acc[groupKey].horariosPorFecha.find(
+            (fechaInfo) =>
+              formatearFechaISO(fechaInfo.fecha) === fechaTexto,
+          );
+          fechaConHorarios.horarios = [
+            ...new Set([...fechaConHorarios.horarios, ...horariosDeReserva]),
+          ].sort();
         }
         
         // Unir usuarios únicos por id
@@ -165,15 +205,17 @@ const MiCalendario = () => {
     const eventos = [];
 
     reservasAgrupadas.forEach(grupo => {
-      const horariosArray = grupo.horarios.split(', ').filter(h => h && h !== 'No asignado');
-      
-      grupo.fechas.forEach(fecha => {
-        horariosArray.forEach(horarioTexto => {
+      grupo.horariosPorFecha.forEach(({ fecha, horarios }) => {
+        const horariosDeLaFecha = horarios.filter(
+          (horario) => horario && horario !== "No asignado",
+        );
+
+        horariosDeLaFecha.forEach(horarioTexto => {
           if (horarioTexto.includes(' - ')) {
             const [horaInicio, horaFin] = horarioTexto.split(' - ');
             
             // Formatear la fecha como YYYY-MM-DD
-            const fechaFormateada = fecha.toISOString().split('T')[0];
+            const fechaFormateada = formatearFechaISO(fecha);
             
             try {
               const inicio = parse(
@@ -190,7 +232,7 @@ const MiCalendario = () => {
               // Verificar que las fechas sean válidas
               if (!isNaN(inicio.getTime()) && !isNaN(fin.getTime())) {
                 eventos.push({
-                  id: grupo.ids.join("-"),
+                  id: `${grupo.ids.join("-")}-${fechaFormateada}-${horarioTexto}`,
                   title: grupo.laboratorios?.nombre || "Laboratorio N/A",
                   start: inicio,
                   end: fin,

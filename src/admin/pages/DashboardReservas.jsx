@@ -7,7 +7,46 @@ import GraficaReservas from "../components/GraficaReservas";
 import PorcentajeUso from "../components/PorcentajeUso";
 import IncidentesTabla from "../components/IncidentesTabla";
 import * as XLSX from "xlsx";
-import { FiCheck, FiChevronDown, FiChevronUp, FiX } from "react-icons/fi";
+import {
+  FiCheck,
+  FiChevronDown,
+  FiChevronUp,
+  FiPlus,
+  FiTrash2,
+  FiX,
+} from "react-icons/fi";
+
+function formatearFechaISO(fecha) {
+  return [
+    fecha.getFullYear(),
+    String(fecha.getMonth() + 1).padStart(2, "0"),
+    String(fecha.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function crearFechaLocalDesdeISO(fecha) {
+  const [anio, mes, dia] = fecha.split("-").map(Number);
+  return new Date(anio, mes - 1, dia);
+}
+
+function crearBloqueHorario() {
+  return {
+    id: crypto.randomUUID(),
+    horarioId: "",
+    fechas: [],
+  };
+}
+
+function crearFormularioReservaGrupal() {
+  return {
+    laboratorioId: "",
+    motivo: "",
+    responsableNombre: "",
+    responsableCorreo: localStorage.getItem("email") || "",
+    tipoResponsable: "Docente",
+    bloques: [crearBloqueHorario()],
+  };
+}
 
 function formatearFechaCorta(fecha) {
   if (!fecha) {
@@ -36,6 +75,7 @@ export default function DashboardReservas() {
   const [tipoUsuarioFiltro, setTipoUsuarioFiltro] = useState("TODOS");
   const [laboratorioFiltro, setLaboratorioFiltro] = useState("TODOS");
   const [laboratorios, setLaboratorios] = useState([]);
+  const [horarios, setHorarios] = useState([]);
   const [reservaExpandida, setReservaExpandida] = useState(null);
   const [fechasMarcadas, setFechasMarcadas] = useState([]);
   const [fechaInicialCalendario, setFechaInicialCalendario] = useState(
@@ -45,6 +85,7 @@ export default function DashboardReservas() {
   useEffect(() => {
     obtenerReservas();
     obtenerLaboratorios();
+    obtenerHorarios();
     // Estas consultas solo deben ejecutarse al montar el dashboard.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -55,6 +96,12 @@ export default function DashboardReservas() {
   const [rechazoModalOpen, setRechazoModalOpen] = useState(false);
   const [grupoARechazar, setGrupoARechazar] = useState(null);
   const [descripcionRechazo, setDescripcionRechazo] = useState("");
+  const [reservaGrupalAbierta, setReservaGrupalAbierta] = useState(false);
+  const [reservaGrupal, setReservaGrupal] = useState(
+    crearFormularioReservaGrupal,
+  );
+  const [errorReservaGrupal, setErrorReservaGrupal] = useState("");
+  const [guardandoReservaGrupal, setGuardandoReservaGrupal] = useState(false);
 
   const abrirModalRechazo = (grupo) => {
     setGrupoARechazar(grupo);
@@ -148,6 +195,306 @@ export default function DashboardReservas() {
       console.error("Error al obtener laboratorios:", error);
     } else {
       setLaboratorios(data);
+    }
+  }
+
+  async function obtenerHorarios() {
+    const { data, error } = await supabase
+      .from("horarios")
+      .select("id, horario")
+      .order("id", { ascending: true });
+
+    if (error) {
+      console.error("Error al obtener horarios:", error);
+    } else {
+      setHorarios(data);
+    }
+  }
+
+  const abrirReservaGrupal = () => {
+    setReservaGrupal(crearFormularioReservaGrupal());
+    setErrorReservaGrupal("");
+    setReservaGrupalAbierta(true);
+  };
+
+  const cerrarReservaGrupal = () => {
+    if (guardandoReservaGrupal) return;
+    setReservaGrupalAbierta(false);
+    setErrorReservaGrupal("");
+  };
+
+  const actualizarReservaGrupal = (campo, valor) => {
+    setReservaGrupal((actual) => ({ ...actual, [campo]: valor }));
+  };
+
+  const actualizarBloqueHorario = (bloqueId, campo, valor) => {
+    setReservaGrupal((actual) => ({
+      ...actual,
+      bloques: actual.bloques.map((bloque) =>
+        bloque.id === bloqueId ? { ...bloque, [campo]: valor } : bloque,
+      ),
+    }));
+  };
+
+  const alternarFechaBloque = (bloqueId, fecha) => {
+    if (guardandoReservaGrupal) return;
+
+    const fechaSeleccionada = formatearFechaISO(fecha);
+
+    setReservaGrupal((actual) => ({
+      ...actual,
+      bloques: actual.bloques.map((bloque) => {
+        if (bloque.id !== bloqueId) return bloque;
+
+        const fechas = bloque.fechas.includes(fechaSeleccionada)
+          ? bloque.fechas.filter(
+              (fechaGuardada) => fechaGuardada !== fechaSeleccionada,
+            )
+          : [...bloque.fechas, fechaSeleccionada].sort();
+
+        return { ...bloque, fechas };
+      }),
+    }));
+  };
+
+  const agregarBloqueHorario = () => {
+    setReservaGrupal((actual) => ({
+      ...actual,
+      bloques: [...actual.bloques, crearBloqueHorario()],
+    }));
+  };
+
+  const eliminarBloqueHorario = (bloqueId) => {
+    setReservaGrupal((actual) => {
+      if (actual.bloques.length === 1) return actual;
+
+      return {
+        ...actual,
+        bloques: actual.bloques.filter((bloque) => bloque.id !== bloqueId),
+      };
+    });
+  };
+
+  const obtenerClienteAdministrativo = () => {
+    const serviceRoleKey = import.meta.env.VITE_SERVICE_ROLE;
+
+    if (!serviceRoleKey) return supabase;
+
+    return createClient(import.meta.env.VITE_SUPABASE_URL, serviceRoleKey);
+  };
+
+  const generarOcurrenciasReserva = () => {
+    if (
+      reservaGrupal.bloques.some(
+        (bloque) => !bloque.horarioId || bloque.fechas.length === 0,
+      )
+    ) {
+      throw new Error("Cada bloque debe tener un horario y fechas seleccionadas.");
+    }
+
+    const horariosPorFecha = new Map();
+
+    reservaGrupal.bloques.forEach((bloque) => {
+      bloque.fechas.forEach((fecha) => {
+        const horariosDeLaFecha = horariosPorFecha.get(fecha) || new Set();
+        horariosDeLaFecha.add(Number(bloque.horarioId));
+        horariosPorFecha.set(fecha, horariosDeLaFecha);
+      });
+    });
+
+    return [...horariosPorFecha.entries()]
+      .sort(([fechaA], [fechaB]) => fechaA.localeCompare(fechaB))
+      .map(([fecha, horariosDeLaFecha]) => ({
+        fecha,
+        horarios: [...horariosDeLaFecha],
+      }));
+  };
+
+  async function obtenerOCrearResponsable(cliente) {
+    const correo = reservaGrupal.responsableCorreo.trim().toLowerCase();
+    const { data: responsableExistente, error: consultaError } = await cliente
+      .from("usuarios")
+      .select("id")
+      .eq("correo", correo)
+      .limit(1)
+      .maybeSingle();
+
+    if (consultaError) throw consultaError;
+    if (responsableExistente) return responsableExistente.id;
+
+    const { data: responsableNuevo, error: insercionError } = await cliente
+      .from("usuarios")
+      .insert({
+        nombre: reservaGrupal.responsableNombre.trim(),
+        numero_cuenta: `ADMIN-${Date.now()}`,
+        correo,
+        tipo_usuario: reservaGrupal.tipoResponsable,
+      })
+      .select("id")
+      .single();
+
+    if (insercionError) throw insercionError;
+    return responsableNuevo.id;
+  }
+
+  async function crearReservaGrupal(event) {
+    event.preventDefault();
+    if (guardandoReservaGrupal) return;
+
+    setErrorReservaGrupal("");
+
+    if (
+      !reservaGrupal.laboratorioId ||
+      !reservaGrupal.motivo.trim() ||
+      !reservaGrupal.responsableNombre.trim() ||
+      !reservaGrupal.responsableCorreo.trim()
+    ) {
+      setErrorReservaGrupal(
+        "Completa el laboratorio, motivo, responsable y una cantidad válida de usuarios.",
+      );
+      return;
+    }
+
+    let ocurrencias;
+    try {
+      ocurrencias = generarOcurrenciasReserva();
+    } catch (error) {
+      setErrorReservaGrupal(error.message);
+      return;
+    }
+
+    setGuardandoReservaGrupal(true);
+    const cliente = obtenerClienteAdministrativo();
+    let reservacionesCreadas = [];
+
+    try {
+      const fechas = ocurrencias.map((ocurrencia) => ocurrencia.fecha);
+      const { data: reservasExistentes, error: disponibilidadError } =
+        await cliente
+          .from("reservaciones")
+          .select("id, fecha, reservaciones_horarios!inner(horario_id)")
+          .eq("laboratorio_id", reservaGrupal.laboratorioId)
+          .eq("estado", "APROBADA")
+          .in("fecha", fechas);
+
+      if (disponibilidadError) throw disponibilidadError;
+
+      const conflictos = new Set(
+        (reservasExistentes || []).flatMap((reserva) =>
+          (reserva.reservaciones_horarios || []).map(
+            (relacion) => `${String(reserva.fecha).slice(0, 10)}:${relacion.horario_id}`,
+          ),
+        ),
+      );
+
+      const conflictosDetectados = ocurrencias.flatMap((ocurrencia) =>
+        ocurrencia.horarios
+          .filter((horarioId) =>
+            conflictos.has(`${ocurrencia.fecha}:${horarioId}`),
+          )
+          .map((horarioId) => ({ fecha: ocurrencia.fecha, horarioId })),
+      );
+
+      if (conflictosDetectados.length > 0) {
+        const detalleConflictos = conflictosDetectados
+          .slice(0, 3)
+          .map((conflicto) => {
+            const horario = horarios.find(
+              (opcion) => opcion.id === conflicto.horarioId,
+            );
+            return `${formatearFechaCorta(conflicto.fecha)} (${horario?.horario || "horario"})`;
+          })
+          .join(", ");
+        const sufijo = conflictosDetectados.length > 3 ? " y otros" : "";
+
+        throw new Error(
+          `Hay reservas aprobadas que coinciden: ${detalleConflictos}${sufijo}.`,
+        );
+      }
+
+      const responsableId = await obtenerOCrearResponsable(cliente);
+      const grupoId = crypto.randomUUID();
+      const reservasParaInsertar = ocurrencias.map((ocurrencia) => ({
+        motivo_uso: reservaGrupal.motivo.trim(),
+        // La columna es obligatoria en la base actual; la reserva grupal no captura este dato.
+        cantidad_usuarios: 1,
+        fecha: ocurrencia.fecha,
+        dias_repeticion: "Fechas seleccionadas manualmente",
+        laboratorio_id: Number(reservaGrupal.laboratorioId),
+        grupo_id: grupoId,
+        estado: "APROBADA",
+      }));
+
+      const { data: reservasCreadas, error: reservaError } = await cliente
+        .from("reservaciones")
+        .insert(reservasParaInsertar)
+        .select("id, fecha");
+
+      if (reservaError) throw reservaError;
+      reservacionesCreadas = (reservasCreadas || []).map(
+        (reserva) => reserva.id,
+      );
+      if (!reservasCreadas || reservasCreadas.length !== ocurrencias.length) {
+        throw new Error("No se pudieron crear todas las fechas de la reserva.");
+      }
+
+      const reservaPorFecha = new Map(
+        reservasCreadas.map((reserva) => [
+          String(reserva.fecha).slice(0, 10),
+          reserva.id,
+        ]),
+      );
+
+      const horariosParaInsertar = ocurrencias.flatMap((ocurrencia) =>
+        ocurrencia.horarios.map((horarioId) => ({
+          reservacion_id: reservaPorFecha.get(ocurrencia.fecha),
+          horario_id: horarioId,
+        })),
+      );
+
+      const { error: horariosError } = await cliente
+        .from("reservaciones_horarios")
+        .insert(horariosParaInsertar);
+      if (horariosError) throw horariosError;
+
+      const usuariosParaInsertar = reservacionesCreadas.map((reservacionId) => ({
+        reservacion_id: reservacionId,
+        usuario_id: responsableId,
+      }));
+
+      const { error: usuariosError } = await cliente
+        .from("reservaciones_usuarios")
+        .insert(usuariosParaInsertar);
+      if (usuariosError) throw usuariosError;
+
+      setReservaGrupalAbierta(false);
+      setReservaGrupal(crearFormularioReservaGrupal());
+      await obtenerReservas();
+      window.alert(
+        `Reserva grupal creada con ${reservacionesCreadas.length} fechas y estado APROBADA.`,
+      );
+    } catch (error) {
+      if (reservacionesCreadas.length > 0) {
+        await cliente
+          .from("reservaciones_usuarios")
+          .delete()
+          .in("reservacion_id", reservacionesCreadas);
+        await cliente
+          .from("reservaciones_horarios")
+          .delete()
+          .in("reservacion_id", reservacionesCreadas);
+        await cliente
+          .from("reservaciones")
+          .delete()
+          .in("id", reservacionesCreadas);
+      }
+
+      console.error("Error al crear la reserva grupal:", error);
+      setErrorReservaGrupal(
+        error.message || "No se pudo crear la reserva grupal.",
+      );
+    } finally {
+      setGuardandoReservaGrupal(false);
     }
   }
 
@@ -547,6 +894,17 @@ export default function DashboardReservas() {
         Dashboard de Reservas
       </h1>
 
+      <div className="mb-6 flex justify-center">
+        <button
+          type="button"
+          onClick={abrirReservaGrupal}
+          className="inline-flex items-center gap-2 rounded-lg bg-[#0f49b6] px-6 py-3 text-lg font-semibold text-white shadow-md transition-colors hover:bg-[#06065c]"
+        >
+          <FiPlus size={20} />
+          Nueva reserva grupal
+        </button>
+      </div>
+
       {/* Contenedor de botones modificado */}
       <div className="flex flex-col items-center gap-4 p-4">
         {/* Botón 1 - Gráfica de Reservas */}
@@ -820,6 +1178,322 @@ export default function DashboardReservas() {
           </table>
         </div>
       </div>
+
+      {reservaGrupalAbierta && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-7">
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                  Administración
+                </p>
+                <h2 className="mt-1 text-2xl font-bold text-gray-800">
+                  Nueva reserva grupal
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Configura las fechas y horarios de una clase en un solo grupo.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={cerrarReservaGrupal}
+                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                aria-label="Cerrar nueva reserva grupal"
+              >
+                <FiX size={22} />
+              </button>
+            </div>
+
+            <form onSubmit={crearReservaGrupal} className="space-y-6">
+              <section>
+                <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                  Información de la clase
+                </h3>
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <label
+                      htmlFor="reserva-grupal-laboratorio"
+                      className="mb-1 block text-sm font-medium text-gray-700"
+                    >
+                      Laboratorio
+                    </label>
+                    <select
+                      id="reserva-grupal-laboratorio"
+                      value={reservaGrupal.laboratorioId}
+                      onChange={(event) =>
+                        actualizarReservaGrupal(
+                          "laboratorioId",
+                          event.target.value,
+                        )
+                      }
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                      disabled={guardandoReservaGrupal}
+                    >
+                      <option value="">Selecciona un laboratorio</option>
+                      {laboratorios.map((laboratorio) => (
+                        <option key={laboratorio.id} value={laboratorio.id}>
+                          {laboratorio.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <div>
+                    <label
+                      htmlFor="reserva-grupal-responsable"
+                      className="mb-1 block text-sm font-medium text-gray-700"
+                    >
+                      Responsable
+                    </label>
+                    <input
+                      id="reserva-grupal-responsable"
+                      type="text"
+                      value={reservaGrupal.responsableNombre}
+                      onChange={(event) =>
+                        actualizarReservaGrupal(
+                          "responsableNombre",
+                          event.target.value,
+                        )
+                      }
+                      placeholder="Nombre del responsable"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                      disabled={guardandoReservaGrupal}
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="reserva-grupal-correo"
+                      className="mb-1 block text-sm font-medium text-gray-700"
+                    >
+                      Correo del responsable
+                    </label>
+                    <input
+                      id="reserva-grupal-correo"
+                      type="email"
+                      value={reservaGrupal.responsableCorreo}
+                      onChange={(event) =>
+                        actualizarReservaGrupal(
+                          "responsableCorreo",
+                          event.target.value,
+                        )
+                      }
+                      placeholder="docente@unitec.edu"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                      disabled={guardandoReservaGrupal}
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="reserva-grupal-tipo"
+                      className="mb-1 block text-sm font-medium text-gray-700"
+                    >
+                      Tipo de responsable
+                    </label>
+                    <select
+                      id="reserva-grupal-tipo"
+                      value={reservaGrupal.tipoResponsable}
+                      onChange={(event) =>
+                        actualizarReservaGrupal(
+                          "tipoResponsable",
+                          event.target.value,
+                        )
+                      }
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                      disabled={guardandoReservaGrupal}
+                    >
+                      <option value="Docente">Docente</option>
+                      <option value="Administrativo">Administrativo</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <label
+                    htmlFor="reserva-grupal-motivo"
+                    className="mb-1 block text-sm font-medium text-gray-700"
+                  >
+                    Motivo de la reserva
+                  </label>
+                  <textarea
+                    id="reserva-grupal-motivo"
+                    rows="2"
+                    value={reservaGrupal.motivo}
+                    onChange={(event) =>
+                      actualizarReservaGrupal("motivo", event.target.value)
+                    }
+                    placeholder="Clase de laboratorio de programación, proyecto final, etc."
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                    disabled={guardandoReservaGrupal}
+                  />
+                </div>
+              </section>
+
+              <section>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                      Bloques de horario
+                    </h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Selecciona directamente en el calendario las fechas de cada horario.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={agregarBloqueHorario}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100"
+                    disabled={guardandoReservaGrupal}
+                  >
+                    <FiPlus size={16} />
+                    Agregar bloque
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {reservaGrupal.bloques.map((bloque, indice) => (
+                    <div
+                      key={bloque.id}
+                      className="rounded-xl border border-gray-200 bg-gray-50 p-4"
+                    >
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <p className="text-sm font-semibold text-gray-700">
+                          Bloque {indice + 1}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => eliminarBloqueHorario(bloque.id)}
+                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+                          disabled={
+                            guardandoReservaGrupal ||
+                            reservaGrupal.bloques.length === 1
+                          }
+                          aria-label={`Eliminar bloque ${indice + 1}`}
+                        >
+                          <FiTrash2 size={14} />
+                          Quitar
+                        </button>
+                      </div>
+
+                      <label
+                        htmlFor={`reserva-grupal-horario-${bloque.id}`}
+                        className="mb-1 block text-sm font-medium text-gray-700"
+                      >
+                        Horario
+                      </label>
+                      <select
+                        id={`reserva-grupal-horario-${bloque.id}`}
+                        value={bloque.horarioId}
+                        onChange={(event) =>
+                          actualizarBloqueHorario(
+                            bloque.id,
+                            "horarioId",
+                            event.target.value,
+                          )
+                        }
+                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                        disabled={guardandoReservaGrupal}
+                      >
+                        <option value="">Selecciona un horario</option>
+                        {horarios.map((horario) => (
+                          <option key={horario.id} value={horario.id}>
+                            {horario.horario}
+                          </option>
+                        ))}
+                      </select>
+
+                      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,auto)_1fr] lg:items-start">
+                        <div>
+                          <p className="mb-2 text-sm font-medium text-gray-700">
+                            Fechas de uso
+                          </p>
+                          <Calendar
+                            locale="es"
+                            value={null}
+                            onClickDay={(fecha) =>
+                              alternarFechaBloque(bloque.id, fecha)
+                            }
+                            tileClassName={({ date }) =>
+                              bloque.fechas.includes(formatearFechaISO(date))
+                                ? "!bg-blue-600 !text-white rounded-full font-semibold"
+                                : ""
+                            }
+                          />
+                        </div>
+                        <div>
+                          <p className="mb-2 text-sm font-medium text-gray-700">
+                            Fechas seleccionadas ({bloque.fechas.length})
+                          </p>
+                          <div className="max-h-64 overflow-y-auto rounded-lg border border-gray-200 bg-white p-3">
+                            {bloque.fechas.length === 0 ? (
+                              <p className="text-sm text-gray-500">
+                                Selecciona uno o más días en el calendario.
+                              </p>
+                            ) : (
+                              <div className="flex flex-wrap gap-2">
+                                {bloque.fechas.map((fecha) => (
+                                  <button
+                                    key={fecha}
+                                    type="button"
+                                    onClick={() =>
+                                      alternarFechaBloque(
+                                        bloque.id,
+                                        crearFechaLocalDesdeISO(fecha),
+                                      )
+                                    }
+                                    className="rounded-full bg-blue-100 px-3 py-1.5 text-xs font-medium text-blue-800 transition-colors hover:bg-blue-200"
+                                    title="Quitar fecha"
+                                    disabled={guardandoReservaGrupal}
+                                  >
+                                    {formatearFechaCorta(fecha)}
+                                    <span className="ml-1" aria-hidden="true">
+                                      ×
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              {errorReservaGrupal && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {errorReservaGrupal}
+                </div>
+              )}
+
+              <div className="flex flex-col-reverse gap-3 border-t pt-5 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={cerrarReservaGrupal}
+                  className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                  disabled={guardandoReservaGrupal}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                  disabled={guardandoReservaGrupal}
+                >
+                  {guardandoReservaGrupal
+                    ? "Creando reserva..."
+                    : "Crear reserva aprobada"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {rechazoModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
