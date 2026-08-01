@@ -1,6 +1,7 @@
 ﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import fondoImg from "../assets/fondo2.webp";
+import PropTypes from "prop-types";
+import fondoImg from "../../assets/fondo2.webp";
 
 export default function Inicio({ setCorreo }) {
   const [email, setEmail] = useState("");
@@ -149,3 +150,7 @@ export default function Inicio({ setCorreo }) {
     </div>
   );
 }
+
+Inicio.propTypes = {
+  setCorreo: PropTypes.func.isRequired,
+};

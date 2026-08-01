@@ -1,8 +1,8 @@
-import React, { useEffect, useState, memo } from "react";
+import { useEffect, useState, memo } from "react";
 import ReactSpeedometer from "react-d3-speedometer";
-import { supabase } from "../supabaseClient";
+import { supabase } from "../../shared/services/supabaseClient";
 
-const PorcentajeUso = memo(() => {
+const PorcentajeUso = memo(function PorcentajeUso() {
   const [laboratorios, setLaboratorios] = useState([]);
   const [horasMax, setHorasMax] = useState(15);
   const [rangoFechas, setRangoFechas] = useState({ inicio: "", final: "" });
@@ -35,7 +35,7 @@ const PorcentajeUso = memo(() => {
       return acc;
     }, {});
 
-    setTrimestres((prev) => ({
+    setTrimestres(() => ({
       Q1: { inicio: "", final: "" },
       Q2: { inicio: "", final: "" },
       Q3: { inicio: "", final: "" },

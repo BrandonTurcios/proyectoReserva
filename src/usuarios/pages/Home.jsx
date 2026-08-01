@@ -1,4 +1,4 @@
-﻿import medidasImg from "../assets/medidas.webp";
+﻿import medidasImg from "../../assets/medidas.webp";
 
 const Home = () => {
   return (

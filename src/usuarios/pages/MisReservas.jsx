@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createClient } from '@supabase/supabase-js';
-import { supabase } from "../supabaseClient";
+import { supabase } from "../../shared/services/supabaseClient";
 
 async function enviarCorreo(destinatario, asunto, cuerpo) {
     try {

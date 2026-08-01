@@ -1,13 +1,13 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from "@supabase/supabase-js";
 import React, { useEffect, useState, useMemo } from "react";
-import { supabase } from "../supabaseClient";
+import { supabase } from "../../shared/services/supabaseClient";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
-import GraficaReservas from "./GraficaReservas"
-import PorcentajeUso from "./PorcentajeUso";
-import IncidentesTabla from "./IncidentesTabla";
-import * as XLSX from 'xlsx';
-import { FiCheck, FiX } from 'react-icons/fi';
+import GraficaReservas from "../components/GraficaReservas";
+import PorcentajeUso from "../components/PorcentajeUso";
+import IncidentesTabla from "../components/IncidentesTabla";
+import * as XLSX from "xlsx";
+import { FiCheck, FiX } from "react-icons/fi";
 
 export default function DashboardReservas() {
   const [reservas, setReservas] = useState([]);
@@ -18,9 +18,10 @@ export default function DashboardReservas() {
   const [laboratorios, setLaboratorios] = useState([]);
   const [reservaExpandida, setReservaExpandida] = useState(null);
   const [fechasMarcadas, setFechasMarcadas] = useState([]);
-  const [fechaInicialCalendario, setFechaInicialCalendario] = useState(new Date());
+  const [fechaInicialCalendario, setFechaInicialCalendario] = useState(
+    new Date(),
+  );
 
-  
   useEffect(() => {
     obtenerReservas();
     obtenerLaboratorios();
@@ -35,68 +36,75 @@ export default function DashboardReservas() {
     Viernes: 5,
     Sábado: 6,
   };
-  
 
-    const [showStats, setShowStats] = useState(false);
-    const [showStatsGr, setShowStatsGr] = useState(false);
-    const [showStatsIn, setShowStatsIn] = useState(false);
-    const [rechazoModalOpen, setRechazoModalOpen] = useState(false);
-    const [grupoARechazar, setGrupoARechazar] = useState(null);
-    const [descripcionRechazo, setDescripcionRechazo] = useState("");
-    
-    const abrirModalRechazo = (grupo) => {
-      setGrupoARechazar(grupo);
-      setDescripcionRechazo("");
-      setRechazoModalOpen(true);
-    };
+  const [showStats, setShowStats] = useState(false);
+  const [showStatsGr, setShowStatsGr] = useState(false);
+  const [showStatsIn, setShowStatsIn] = useState(false);
+  const [rechazoModalOpen, setRechazoModalOpen] = useState(false);
+  const [grupoARechazar, setGrupoARechazar] = useState(null);
+  const [descripcionRechazo, setDescripcionRechazo] = useState("");
 
-    const cerrarModalRechazo = () => {
-      setRechazoModalOpen(false);
-      setGrupoARechazar(null);
-      setDescripcionRechazo("");
-    };
+  const abrirModalRechazo = (grupo) => {
+    setGrupoARechazar(grupo);
+    setDescripcionRechazo("");
+    setRechazoModalOpen(true);
+  };
 
-    const confirmarRechazo = async () => {
-      if (!descripcionRechazo.trim()) {
-        window.alert("Por favor ingresa la descripción del rechazo.");
-        return;
-      }
-      if (grupoARechazar) {
-        await actualizarEstadoGrupo(grupoARechazar.ids, "RECHAZADA", grupoARechazar, descripcionRechazo.trim());
-      }
-      cerrarModalRechazo();
-    };
-    
-    // Memoizamos el componente para preservar su estado
-    const memoizedStats = useMemo(() => (
+  const cerrarModalRechazo = () => {
+    setRechazoModalOpen(false);
+    setGrupoARechazar(null);
+    setDescripcionRechazo("");
+  };
+
+  const confirmarRechazo = async () => {
+    if (!descripcionRechazo.trim()) {
+      window.alert("Por favor ingresa la descripción del rechazo.");
+      return;
+    }
+    if (grupoARechazar) {
+      await actualizarEstadoGrupo(
+        grupoARechazar.ids,
+        "RECHAZADA",
+        grupoARechazar,
+        descripcionRechazo.trim(),
+      );
+    }
+    cerrarModalRechazo();
+  };
+
+  // Memoizamos el componente para preservar su estado
+  const memoizedStats = useMemo(
+    () => (
       <div className="mb-8 p-6 bg-white rounded-lg shadow-md">
         <PorcentajeUso />
       </div>
-      
-    )
-    , []);
+    ),
+    [],
+  );
 
-    const memoizedStatsGr = useMemo(() => (
+  const memoizedStatsGr = useMemo(
+    () => (
       <div className="mb-8 p-6 bg-white rounded-lg shadow-md">
         <GraficaReservas />
       </div>
-      
-    )
-    , []);
+    ),
+    [],
+  );
 
-    const memoizedStatsIn = useMemo(() => (
+  const memoizedStatsIn = useMemo(
+    () => (
       <div className="mb-8 p-6 bg-white rounded-lg shadow-md">
         <IncidentesTabla />
       </div>
-      
-    )
-    , []);
+    ),
+    [],
+  );
 
-
-    async function obtenerReservas() {
-      const { data, error } = await supabase
-        .from("reservaciones")
-        .select(`
+  async function obtenerReservas() {
+    const { data, error } = await supabase
+      .from("reservaciones")
+      .select(
+        `
           id,
           motivo_uso,
           cantidad_usuarios,
@@ -108,16 +116,17 @@ export default function DashboardReservas() {
           laboratorios(nombre),
           reservaciones_usuarios(usuario_id, usuarios(correo, nombre, tipo_usuario)),
           reservaciones_horarios(horarios(horario))
-        `)
-        .order("id", { ascending: false });
-    
-      if (error) {
-        console.error("Error al obtener reservas:", error);
-      } else {
-        setReservas(data);
-        agruparReservas(data);
-      }
+        `,
+      )
+      .order("id", { ascending: false });
+
+    if (error) {
+      console.error("Error al obtener reservas:", error);
+    } else {
+      setReservas(data);
+      agruparReservas(data);
     }
+  }
 
   async function obtenerLaboratorios() {
     const { data, error } = await supabase
@@ -131,11 +140,17 @@ export default function DashboardReservas() {
     }
   }
 
-  async function verificarLimiteReservas(laboratorioId, fecha, horario, tipoUsuario) {
+  async function verificarLimiteReservas(
+    laboratorioId,
+    fecha,
+    horario,
+    tipoUsuario,
+  ) {
     // Obtener todas las reservas aprobadas para el laboratorio, fecha y horario específicos
     const { data, error } = await supabase
       .from("reservaciones")
-      .select(`
+      .select(
+        `
         id,
         reservaciones_horarios!inner (
           horarios!inner (
@@ -147,7 +162,8 @@ export default function DashboardReservas() {
             tipo_usuario
           )
         )
-      `)
+      `,
+      )
       .eq("laboratorio_id", laboratorioId)
       .eq("fecha", fecha)
       .eq("estado", "APROBADA")
@@ -164,7 +180,8 @@ export default function DashboardReservas() {
     let reservasAdministrativo = 0;
 
     data.forEach((reserva) => {
-      const tipoUsuarioReserva = reserva.reservaciones_usuarios[0]?.usuarios?.tipo_usuario;
+      const tipoUsuarioReserva =
+        reserva.reservaciones_usuarios[0]?.usuarios?.tipo_usuario;
       if (tipoUsuarioReserva === "Estudiante") {
         reservasAlumnos++;
       } else if (tipoUsuarioReserva === "Docente") {
@@ -179,22 +196,29 @@ export default function DashboardReservas() {
       if (reservasDocentes > 0 || reservasAdministrativo > 0) {
         return {
           limiteExcedido: true,
-          mensaje: "No puedes reservar porque ya hay una reserva de docente o administrativo para este horario y laboratorio.",
+          mensaje:
+            "No puedes reservar porque ya hay una reserva de docente o administrativo para este horario y laboratorio.",
         };
       }
       if (reservasAlumnos >= 20) {
         return {
           limiteExcedido: true,
-          mensaje: "Ya hay 20 reservas de alumnos aprobadas para este horario y laboratorio.",
+          mensaje:
+            "Ya hay 20 reservas de alumnos aprobadas para este horario y laboratorio.",
         };
       }
       // Si no hay docente/administrativo y hay menos de 20 alumnos, permitir
       return { limiteExcedido: false, mensaje: "" };
     } else if (tipoUsuario === "Docente" || tipoUsuario === "Administrativo") {
-      if (reservasAlumnos > 0 || reservasDocentes > 0 || reservasAdministrativo > 0) {
+      if (
+        reservasAlumnos > 0 ||
+        reservasDocentes > 0 ||
+        reservasAdministrativo > 0
+      ) {
         return {
           limiteExcedido: true,
-          mensaje: "No puedes reservar porque ya hay una reserva de estudiante, docente o administrativo para este horario y laboratorio.",
+          mensaje:
+            "No puedes reservar porque ya hay una reserva de estudiante, docente o administrativo para este horario y laboratorio.",
         };
       }
       // Si no hay ninguno, permitir
@@ -218,7 +242,7 @@ export default function DashboardReservas() {
           cuerpo: cuerpo,
         }),
       });
-  
+
       if (response.ok) {
         console.log("Correo enviado correctamente a:", destinatario);
       } else {
@@ -229,34 +253,37 @@ export default function DashboardReservas() {
       console.error("Error en la solicitud a:", destinatario, error);
     }
   }
-  
-  
 
-async function actualizarEstadoGrupo(ids, nuevoEstado, grupo, descripcionRechazo = "") {
+  async function actualizarEstadoGrupo(
+    ids,
+    nuevoEstado,
+    grupo,
+    descripcionRechazo = "",
+  ) {
     if (nuevoEstado === "APROBADA") {
       const laboratorioId = grupo.laboratorio_id;
       const fecha = grupo.fechas[0].toISOString().split("T")[0];
       const horario = grupo.horarios.split(", ")[0];
       const tipoUsuario = grupo.tiposUsuarios; // Tipo de usuario de la reserva
-  
+
       // Verificar si se excede el límite de reservas aprobadas
       const { limiteExcedido, mensaje } = await verificarLimiteReservas(
         laboratorioId,
         fecha,
         horario,
-        tipoUsuario
+        tipoUsuario,
       );
-  
+
       if (limiteExcedido) {
         const confirmacion = window.confirm(
-          `${mensaje}\n¿Desea autorizar esta reserva de todos modos?`
+          `${mensaje}\n¿Desea autorizar esta reserva de todos modos?`,
         );
-  
+
         if (!confirmacion) {
           return; // No se aprueba la reserva
         }
       }
-  
+
       // Continuar con la aprobación de la reserva
       const fechasFormateadas = grupo.fechas
         .map((fecha) => {
@@ -267,7 +294,7 @@ async function actualizarEstadoGrupo(ids, nuevoEstado, grupo, descripcionRechazo
           });
         })
         .join(", ");
-  
+
       // Enviar correo electrónico al usuario que hizo la reserva
       const destinatario = grupo.correos.split(", ")[0];
       const cuerpoCorreo = `Buen día, por este medio se le notifica que la siguiente reserva ha sido aprobada: <br>
@@ -275,9 +302,9 @@ async function actualizarEstadoGrupo(ids, nuevoEstado, grupo, descripcionRechazo
         Fecha: ${fechasFormateadas}<br>
         Horario: ${grupo.horarios}<br>
         Motivo: ${grupo.motivo_uso}<br>`;
-        
+
       await enviarCorreo(destinatario, "Reserva Aprobada", cuerpoCorreo);
-  
+
       // Enviar correo electrónico al correo estático (AIRE AC)
       const destinatarioAC = import.meta.env.VITE_CORREO_AC;
       const destinatarioAC2 = import.meta.env.VITE_CORREO_AC2;
@@ -285,10 +312,10 @@ async function actualizarEstadoGrupo(ids, nuevoEstado, grupo, descripcionRechazo
         ${grupo.nombresUsuarios}. La reserva es en la fecha: ${fechasFormateadas} con un horario comprendido de ${grupo.horarios}.`;
       const asuntoAC = `Solicitud de reserva de ${grupo.laboratorios?.nombre}
       `;
-        
+
       await enviarCorreo(destinatarioAC, asuntoAC, cuerpoCorreoAC);
       await enviarCorreo(destinatarioAC2, asuntoAC, cuerpoCorreoAC);
-    } else if (nuevoEstado === 'RECHAZADA') {
+    } else if (nuevoEstado === "RECHAZADA") {
       const fechasFormateadas = grupo.fechas
         .map((fecha) => {
           return new Date(fecha).toLocaleDateString("es-ES", {
@@ -308,18 +335,21 @@ async function actualizarEstadoGrupo(ids, nuevoEstado, grupo, descripcionRechazo
         Razón del rechazo: ${descripcionRechazo || "No especificada"}<br>`;
       await enviarCorreo(destinatario, "Reserva Rechazada", cuerpoCorreo);
     }
-  
+
     // Actualizar el estado de la reserva en la base de datos
-    const supabaseAdmin = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SERVICE_ROLE);
+    const supabaseAdmin = createClient(
+      import.meta.env.VITE_SUPABASE_URL,
+      import.meta.env.VITE_SERVICE_ROLE,
+    );
 
-      const updatePayload = { estado: nuevoEstado };
-      if (nuevoEstado === 'RECHAZADA') {
-        updatePayload.descripcion = descripcionRechazo;
-      } else {
-        updatePayload.descripcion = "";
-      }
+    const updatePayload = { estado: nuevoEstado };
+    if (nuevoEstado === "RECHAZADA") {
+      updatePayload.descripcion = descripcionRechazo;
+    } else {
+      updatePayload.descripcion = "";
+    }
 
-      const { error } = await supabaseAdmin
+    const { error } = await supabaseAdmin
       .from("reservaciones")
       .update(updatePayload)
       .in("id", ids);
@@ -333,55 +363,69 @@ async function actualizarEstadoGrupo(ids, nuevoEstado, grupo, descripcionRechazo
 
   function agruparReservas(reservas) {
     const DIAS_SEMANA_REVERSO = {
-      0: 'Domingo',
-      1: 'Lunes',
-      2: 'Martes',
-      3: 'Miércoles',
-      4: 'Jueves',
-      5: 'Viernes',
-      6: 'Sábado'
+      0: "Domingo",
+      1: "Lunes",
+      2: "Martes",
+      3: "Miércoles",
+      4: "Jueves",
+      5: "Viernes",
+      6: "Sábado",
     };
-  
+
     const agrupadas = reservas.reduce((acc, reserva) => {
       // Usar grupo_id como clave primaria de agrupación, o id si no existe grupo_id
       const groupKey = reserva.grupo_id || reserva.id;
-  
+
       if (!acc[groupKey]) {
         // Procesar usuarios, usando id para evitar duplicados reales
         const usuariosInfo = reserva.reservaciones_usuarios || [];
         acc[groupKey] = {
           ...reserva,
           usuariosUnicos: usuariosInfo
-            .map(ru => ({
+            .map((ru) => ({
               id: ru.usuario_id,
-              nombre: ru.usuarios?.nombre?.trim()
+              nombre: ru.usuarios?.nombre?.trim(),
             }))
-            .filter(u => u.id && u.nombre),
-          correos: usuariosInfo
-            .map(ru => ru.usuarios?.correo?.trim())
-            .filter(Boolean)
-            .join(", ") || "N/A",
-          horarios: (reserva.reservaciones_horarios || [])
-            .map(rh => rh.horarios?.horario)
-            .filter(Boolean)
-            .sort()
-            .join(", ") || "No asignado",
-          tiposUsuarios: usuariosInfo
-            .map(ru => ru.usuarios?.tipo_usuario)
-            .filter(Boolean)
-            .join(", ") || "N/A",
+            .filter((u) => u.id && u.nombre),
+          correos:
+            usuariosInfo
+              .map((ru) => ru.usuarios?.correo?.trim())
+              .filter(Boolean)
+              .join(", ") || "N/A",
+          horarios:
+            (reserva.reservaciones_horarios || [])
+              .map((rh) => rh.horarios?.horario)
+              .filter(Boolean)
+              .sort()
+              .join(", ") || "No asignado",
+          tiposUsuarios:
+            usuariosInfo
+              .map((ru) => ru.usuarios?.tipo_usuario)
+              .filter(Boolean)
+              .join(", ") || "N/A",
           descripcion: reserva.descripcion || "",
-          fechas: [new Date(reserva.fecha.getTime ? reserva.fecha.getTime() : new Date(reserva.fecha).getTime() + new Date(reserva.fecha).getTimezoneOffset() * 60000)],
+          fechas: [
+            new Date(
+              reserva.fecha.getTime
+                ? reserva.fecha.getTime()
+                : new Date(reserva.fecha).getTime() +
+                    new Date(reserva.fecha).getTimezoneOffset() * 60000,
+            ),
+          ],
           ids: [reserva.id],
           diaSemana: undefined,
-          laboratorios: reserva.laboratorios || { nombre: "N/A" }
+          laboratorios: reserva.laboratorios || { nombre: "N/A" },
         };
       } else {
         // Solo agregar si es una fecha nueva
         const fechaReserva = new Date(reserva.fecha);
-        const fechaAjustada = new Date(fechaReserva.getTime() + fechaReserva.getTimezoneOffset() * 60000);
-        const fechaYaExiste = acc[groupKey].fechas.some(f => 
-          f.toISOString().split('T')[0] === fechaAjustada.toISOString().split('T')[0]
+        const fechaAjustada = new Date(
+          fechaReserva.getTime() + fechaReserva.getTimezoneOffset() * 60000,
+        );
+        const fechaYaExiste = acc[groupKey].fechas.some(
+          (f) =>
+            f.toISOString().split("T")[0] ===
+            fechaAjustada.toISOString().split("T")[0],
         );
         if (!fechaYaExiste) {
           acc[groupKey].fechas.push(fechaAjustada);
@@ -390,35 +434,38 @@ async function actualizarEstadoGrupo(ids, nuevoEstado, grupo, descripcionRechazo
         }
         // Unir usuarios únicos por id
         const nuevosUsuarios = (reserva.reservaciones_usuarios || [])
-          .map(ru => ({
+          .map((ru) => ({
             id: ru.usuario_id,
-            nombre: ru.usuarios?.nombre?.trim()
+            nombre: ru.usuarios?.nombre?.trim(),
           }))
-          .filter(u => u.id && u.nombre);
-        const usuariosMap = new Map(acc[groupKey].usuariosUnicos.map(u => [u.id, u]));
-        nuevosUsuarios.forEach(u => usuariosMap.set(u.id, u));
+          .filter((u) => u.id && u.nombre);
+        const usuariosMap = new Map(
+          acc[groupKey].usuariosUnicos.map((u) => [u.id, u]),
+        );
+        nuevosUsuarios.forEach((u) => usuariosMap.set(u.id, u));
         acc[groupKey].usuariosUnicos = Array.from(usuariosMap.values());
         // Combinar correos únicos
         const usuariosInfo = reserva.reservaciones_usuarios || [];
         const nuevosCorreos = usuariosInfo
-          .map(ru => ru.usuarios?.correo?.trim())
+          .map((ru) => ru.usuarios?.correo?.trim())
           .filter(Boolean);
-        const correosExistentes = acc[groupKey].correos.split(', ');
+        const correosExistentes = acc[groupKey].correos.split(", ");
         const todosCorreos = [...correosExistentes, ...nuevosCorreos];
-        acc[groupKey].correos = [...new Set(todosCorreos)].join(', ');
-        acc[groupKey].descripcion = acc[groupKey].descripcion || reserva.descripcion || "";
+        acc[groupKey].correos = [...new Set(todosCorreos)].join(", ");
+        acc[groupKey].descripcion =
+          acc[groupKey].descripcion || reserva.descripcion || "";
       }
       return acc;
     }, {});
-  
+
     // Ordenar por fecha más reciente
-    const resultado = Object.values(agrupadas).map(grupo => ({
-      ...grupo,
-      nombresUsuarios: grupo.usuariosUnicos.map(u => u.nombre).join(", "),
-    })).sort((a, b) => 
-      b.fechas[0] - a.fechas[0]
-    );
-  
+    const resultado = Object.values(agrupadas)
+      .map((grupo) => ({
+        ...grupo,
+        nombresUsuarios: grupo.usuariosUnicos.map((u) => u.nombre).join(", "),
+      }))
+      .sort((a, b) => b.fechas[0] - a.fechas[0]);
+
     setReservasAgrupadas(resultado);
   }
   const toggleReserva = (grupo) => {
@@ -437,21 +484,23 @@ async function actualizarEstadoGrupo(ids, nuevoEstado, grupo, descripcionRechazo
 
   const exportarAExcel = () => {
     // Usar todas las reservas sin filtrar
-    const datosExcel = reservasAgrupadas.map(grupo => ({
-      'Nombre': grupo.nombresUsuarios,
-      'Tipo de Usuario': grupo.tiposUsuarios,
-      'Laboratorio': grupo.laboratorios?.nombre || 'N/A',
-      'Motivo': grupo.motivo_uso,
-      'Correos': grupo.correos,
-      'Horarios': grupo.horarios,
-      'Estado': grupo.estado,
-      'Fechas': grupo.fechas.map(fecha => 
-        new Date(fecha).toLocaleDateString('es-ES', {
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric'
-        })
-      ).join(', ')
+    const datosExcel = reservasAgrupadas.map((grupo) => ({
+      Nombre: grupo.nombresUsuarios,
+      "Tipo de Usuario": grupo.tiposUsuarios,
+      Laboratorio: grupo.laboratorios?.nombre || "N/A",
+      Motivo: grupo.motivo_uso,
+      Correos: grupo.correos,
+      Horarios: grupo.horarios,
+      Estado: grupo.estado,
+      Fechas: grupo.fechas
+        .map((fecha) =>
+          new Date(fecha).toLocaleDateString("es-ES", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          }),
+        )
+        .join(", "),
     }));
 
     // Crear un nuevo libro de Excel
@@ -460,70 +509,85 @@ async function actualizarEstadoGrupo(ids, nuevoEstado, grupo, descripcionRechazo
 
     // Ajustar el ancho de las columnas
     const wscols = [
-      {wch: 30}, // Nombre
-      {wch: 15}, // Tipo de Usuario
-      {wch: 20}, // Laboratorio
-      {wch: 40}, // Motivo
-      {wch: 30}, // Correos
-      {wch: 20}, // Horarios
-      {wch: 15}, // Estado
-      {wch: 40}  // Fechas
+      { wch: 30 }, // Nombre
+      { wch: 15 }, // Tipo de Usuario
+      { wch: 20 }, // Laboratorio
+      { wch: 40 }, // Motivo
+      { wch: 30 }, // Correos
+      { wch: 20 }, // Horarios
+      { wch: 15 }, // Estado
+      { wch: 40 }, // Fechas
     ];
-    ws['!cols'] = wscols;
+    ws["!cols"] = wscols;
 
     // Agregar la hoja al libro
     XLSX.utils.book_append_sheet(wb, ws, "Reservas");
 
     // Generar el archivo Excel
-    const fechaActual = new Date().toISOString().split('T')[0];
+    const fechaActual = new Date().toISOString().split("T")[0];
     XLSX.writeFile(wb, `Reservas_${fechaActual}.xlsx`);
   };
 
+  const reservasFiltradas = reservasAgrupadas.filter(
+    (grupo) =>
+      (estadoFiltro === "TODOS" || grupo.estado === estadoFiltro) &&
+      (tipoUsuarioFiltro === "TODOS" ||
+        grupo.tiposUsuarios.includes(tipoUsuarioFiltro)) &&
+      (laboratorioFiltro === "TODOS" ||
+        grupo.laboratorios?.nombre === laboratorioFiltro),
+  );
+
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
-    <h1 className="text-4xl font-bold mb-6 text-center text-gray-800">
-      Dashboard de Reservas
-    </h1>
+      <h1 className="text-4xl font-bold mb-6 text-center text-gray-800">
+        Dashboard de Reservas
+      </h1>
 
-    {/* Contenedor de botones modificado */}
-    <div className="flex flex-col items-center gap-4 p-4">
-      {/* Botón 1 - Gráfica de Reservas */}
-      <div className="w-full text-center">
-        <button
-          onClick={() => setShowStatsGr(!showStatsGr)}
-          className="w-full mb-2 px-6 py-3 bg-cyan-600 text-white rounded-lg hover:bg-[#4D4DFF] transition-colors text-lg"
-        >
-          {showStatsGr ? 'Ocultar Gráfica de Reservas Aprobadas' : 'Mostrar Gráfica de Reservas Aprobadas'}
-        </button>
-        {showStatsGr && <div className="w-full">{memoizedStatsGr}</div>}
-      </div>
+      {/* Contenedor de botones modificado */}
+      <div className="flex flex-col items-center gap-4 p-4">
+        {/* Botón 1 - Gráfica de Reservas */}
+        <div className="w-full text-center">
+          <button
+            onClick={() => setShowStatsGr(!showStatsGr)}
+            className="w-full mb-2 px-6 py-3 bg-cyan-600 text-white rounded-lg hover:bg-[#4D4DFF] transition-colors text-lg"
+          >
+            {showStatsGr
+              ? "Ocultar Gráfica de Reservas Aprobadas"
+              : "Mostrar Gráfica de Reservas Aprobadas"}
+          </button>
+          {showStatsGr && <div className="w-full">{memoizedStatsGr}</div>}
+        </div>
 
-      {/* Botón 2 - Estadísticas */}
-      <div className="w-full text-center">
-        <button
-          onClick={() => setShowStats(!showStats)}
-          className="w-full mb-2 px-6 py-3 bg-[#4B9CD3] text-white rounded-lg hover:bg-[#4D4DFF] transition-colors text-lg"
-        >
-          {showStats ? 'Ocultar Porcentajes de Uso' : 'Mostrar Porcentajes de Uso'}
-        </button>
-        {showStats && <div className="w-full">{memoizedStats}</div>}
-      </div>
+        {/* Botón 2 - Estadísticas */}
+        <div className="w-full text-center">
+          <button
+            onClick={() => setShowStats(!showStats)}
+            className="w-full mb-2 px-6 py-3 bg-[#4B9CD3] text-white rounded-lg hover:bg-[#4D4DFF] transition-colors text-lg"
+          >
+            {showStats
+              ? "Ocultar Porcentajes de Uso"
+              : "Mostrar Porcentajes de Uso"}
+          </button>
+          {showStats && <div className="w-full">{memoizedStats}</div>}
+        </div>
 
-      {/* Botón 3 - Incidentes */}
-      <div className="w-full text-center">
-        <button
-          onClick={() => setShowStatsIn(!showStatsIn)}
-          className="w-full mb-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-[#4D4DFF] transition-colors text-lg"
-        >
-          {showStatsIn ? 'Ocultar Incidentes' : 'Mostrar Incidentes'}
-        </button>
-        {showStatsIn && <div className="w-full">{memoizedStatsIn}</div>}
+        {/* Botón 3 - Incidentes */}
+        <div className="w-full text-center">
+          <button
+            onClick={() => setShowStatsIn(!showStatsIn)}
+            className="w-full mb-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-[#4D4DFF] transition-colors text-lg"
+          >
+            {showStatsIn ? "Ocultar Incidentes" : "Mostrar Incidentes"}
+          </button>
+          {showStatsIn && <div className="w-full">{memoizedStatsIn}</div>}
+        </div>
       </div>
-    </div>
 
       {/* Sección de filtros y tabla */}
       <div className="p-6 bg-white rounded-lg shadow-md">
-        <h2 className="text-xl font-semibold mb-4 text-gray-700">Gestión de Reservas</h2>
+        <h2 className="text-xl font-semibold mb-4 text-gray-700">
+          Gestión de Reservas
+        </h2>
 
         {/* Filtros */}
         <div className="mb-4 flex justify-center space-x-4">
@@ -541,7 +605,9 @@ async function actualizarEstadoGrupo(ids, nuevoEstado, grupo, descripcionRechazo
           </div>
 
           <div>
-            <label className="mr-2 font-semibold">Filtrar por tipo de usuario:</label>
+            <label className="mr-2 font-semibold">
+              Filtrar por tipo de usuario:
+            </label>
             <select
               value={tipoUsuarioFiltro}
               onChange={(e) => setTipoUsuarioFiltro(e.target.value)}
@@ -556,7 +622,9 @@ async function actualizarEstadoGrupo(ids, nuevoEstado, grupo, descripcionRechazo
           </div>
 
           <div>
-            <label className="mr-2 font-semibold">Filtrar por laboratorio:</label>
+            <label className="mr-2 font-semibold">
+              Filtrar por laboratorio:
+            </label>
             <select
               value={laboratorioFiltro}
               onChange={(e) => setLaboratorioFiltro(e.target.value)}
@@ -580,7 +648,7 @@ async function actualizarEstadoGrupo(ids, nuevoEstado, grupo, descripcionRechazo
             </button>
           </div>
         </div>
-             
+
         {/* Tabla de reservas */}
         <div className="overflow-x-auto w-full">
           <table className="w-full bg-white shadow-lg rounded-lg border border-gray-300">
@@ -588,22 +656,24 @@ async function actualizarEstadoGrupo(ids, nuevoEstado, grupo, descripcionRechazo
               <tr className="bg-blue-600 text-white text-left text-sm">
                 <th className="px-4 py-2 border-b whitespace-nowrap">Nombre</th>
                 <th className="px-4 py-2 border-b whitespace-nowrap">Tipo</th>
-                <th className="px-4 py-2 border-b whitespace-nowrap">Laboratorio</th>
+                <th className="px-4 py-2 border-b whitespace-nowrap">
+                  Laboratorio
+                </th>
                 <th className="px-4 py-2 border-b whitespace-nowrap">Motivo</th>
-                <th className="px-4 py-2 border-b whitespace-nowrap">Correos</th>
-                <th className="px-4 py-2 border-b whitespace-nowrap">Horarios</th>
+                <th className="px-4 py-2 border-b whitespace-nowrap">
+                  Correos
+                </th>
+                <th className="px-4 py-2 border-b whitespace-nowrap">
+                  Horarios
+                </th>
                 <th className="px-4 py-2 border-b whitespace-nowrap">Estado</th>
-                <th className="px-4 py-2 border-b whitespace-nowrap">Acciones</th>
+                <th className="px-4 py-2 border-b whitespace-nowrap">
+                  Acciones
+                </th>
               </tr>
             </thead>
             <tbody>
-              {reservasAgrupadas
-                .filter((grupo) =>
-                  (estadoFiltro === "TODOS" || grupo.estado === estadoFiltro) &&
-                  (tipoUsuarioFiltro === "TODOS" || grupo.tiposUsuarios.includes(tipoUsuarioFiltro)) &&
-                  (laboratorioFiltro === "TODOS" || grupo.laboratorios?.nombre === laboratorioFiltro)
-                )
-                .map((grupo) => (
+              {reservasFiltradas.map((grupo) => (
                   <React.Fragment key={grupo.ids.join("-")}>
                     <tr
                       className="border-t hover:bg-gray-200 transition-colors cursor-pointer text-sm"
@@ -611,11 +681,15 @@ async function actualizarEstadoGrupo(ids, nuevoEstado, grupo, descripcionRechazo
                     >
                       <td className="px-4 py-2">{grupo.nombresUsuarios}</td>
                       <td className="px-4 py-2">{grupo.tiposUsuarios}</td>
-                      <td className="px-4 py-2">{grupo.laboratorios?.nombre || "N/A"}</td>
+                      <td className="px-4 py-2">
+                        {grupo.laboratorios?.nombre || "N/A"}
+                      </td>
                       <td className="px-4 py-2">{grupo.motivo_uso}</td>
                       <td className="px-4 py-2">{grupo.correos}</td>
                       <td className="px-4 py-2">{grupo.horarios}</td>
-                      <td className="px-4 py-2 font-semibold">{grupo.estado}</td>
+                      <td className="px-4 py-2 font-semibold">
+                        {grupo.estado}
+                      </td>
                       <td className="px-4 py-4">
                         <div className="flex items-center justify-center gap-2">
                           {grupo.estado === "EN_ESPERA" ? (
@@ -623,13 +697,17 @@ async function actualizarEstadoGrupo(ids, nuevoEstado, grupo, descripcionRechazo
                               <button
                                 onClick={(event) => {
                                   event.stopPropagation();
-                                  actualizarEstadoGrupo(grupo.ids, "APROBADA", grupo);
+                                  actualizarEstadoGrupo(
+                                    grupo.ids,
+                                    "APROBADA",
+                                    grupo,
+                                  );
                                 }}
                                 className="bg-green-500 text-white px-3 py-1 rounded-lg hover:bg-green-600 transition text-xs flex items-center justify-center"
                               >
-                                <FiCheck size={16}/>
+                                <FiCheck size={16} />
                               </button>
-                              
+
                               <button
                                 onClick={(event) => {
                                   event.stopPropagation();
@@ -637,28 +715,32 @@ async function actualizarEstadoGrupo(ids, nuevoEstado, grupo, descripcionRechazo
                                 }}
                                 className="bg-red-500 text-white px-3 py-1 rounded-lg hover:bg-red-600 transition text-xs flex items-center justify-center"
                               >
-                                <FiX size={16}/>
+                                <FiX size={16} />
                               </button>
                             </>
                           ) : grupo.estado === "APROBADA" ? (
                             <button
                               onClick={(event) => {
-                                  event.stopPropagation();
-                                  abrirModalRechazo(grupo);
+                                event.stopPropagation();
+                                abrirModalRechazo(grupo);
                               }}
                               className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg transition text-xs flex items-center justify-center"
                             >
-                              <FiX size={16}/>
+                              <FiX size={16} />
                             </button>
                           ) : (
                             <button
                               onClick={(event) => {
-                                  event.stopPropagation();
-                                  actualizarEstadoGrupo(grupo.ids, "APROBADA", grupo);
+                                event.stopPropagation();
+                                actualizarEstadoGrupo(
+                                  grupo.ids,
+                                  "APROBADA",
+                                  grupo,
+                                );
                               }}
                               className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-lg transition text-xs flex items-center justify-center"
                             >
-                              <FiCheck size={16}/>
+                              <FiCheck size={16} />
                             </button>
                           )}
                         </div>
@@ -669,19 +751,26 @@ async function actualizarEstadoGrupo(ids, nuevoEstado, grupo, descripcionRechazo
                         <td colSpan="8" className="px-3 py-3">
                           <div className="flex justify-center items-center mt-2">
                             <Calendar
-                              key={reservaExpandida ? reservaExpandida.id : "default"}
+                              key={
+                                reservaExpandida
+                                  ? reservaExpandida.id
+                                  : "default"
+                              }
                               value={fechaInicialCalendario}
                               locale="es"
                               tileClassName={({ date }) => {
                                 const isMarked = fechasMarcadas.some(
                                   (f) =>
-                                    f instanceof Date && f.toDateString() === date.toDateString()
+                                    f instanceof Date &&
+                                    f.toDateString() === date.toDateString(),
                                 );
                                 return isMarked
                                   ? "!bg-blue-500 text-white font-bold rounded-full opacity-80"
                                   : "";
                               }}
-                              onClickDay={(date) => console.log("Fecha seleccionada:", date)}
+                              onClickDay={(date) =>
+                                console.log("Fecha seleccionada:", date)
+                              }
                             />
                           </div>
                         </td>
@@ -689,6 +778,13 @@ async function actualizarEstadoGrupo(ids, nuevoEstado, grupo, descripcionRechazo
                     )}
                   </React.Fragment>
                 ))}
+              {reservasFiltradas.length === 0 && (
+                <tr>
+                  <td colSpan="8" className="px-4 py-8 text-center text-gray-500">
+                    No hay reservas para mostrar con los filtros seleccionados.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -699,8 +795,12 @@ async function actualizarEstadoGrupo(ids, nuevoEstado, grupo, descripcionRechazo
           <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h2 className="text-xl font-semibold text-gray-800">Rechazar reserva</h2>
-                <p className="text-sm text-gray-600">Ingresa la descripción del rechazo antes de confirmar.</p>
+                <h2 className="text-xl font-semibold text-gray-800">
+                  Rechazar reserva
+                </h2>
+                <p className="text-sm text-gray-600">
+                  Ingresa la descripción del rechazo antes de confirmar.
+                </p>
               </div>
               <button
                 onClick={cerrarModalRechazo}

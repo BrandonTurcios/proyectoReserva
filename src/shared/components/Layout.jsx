@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import PropTypes from "prop-types";
-import logo from "../assets/UT2.png";
+import logo from "../../assets/UT2.png";
 
 const navItems = [
   { to: "/crear-reserva", icon: "➕", label: "Crear Reserva" },

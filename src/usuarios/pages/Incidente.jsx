@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { supabase } from "../supabaseClient";
+import { supabase } from "../../shared/services/supabaseClient";
 import { motion } from "framer-motion";
 
 const Incidente = () => {

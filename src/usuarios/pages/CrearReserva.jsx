@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
-import { supabase } from "../supabaseClient";
+import { supabase } from "../../shared/services/supabaseClient";
 import { motion } from "framer-motion";
-import "../index.css";
 import Select from "react-select";
 import { message } from "antd";
 
