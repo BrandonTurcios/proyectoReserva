@@ -7,10 +7,30 @@ import GraficaReservas from "../components/GraficaReservas";
 import PorcentajeUso from "../components/PorcentajeUso";
 import IncidentesTabla from "../components/IncidentesTabla";
 import * as XLSX from "xlsx";
-import { FiCheck, FiX } from "react-icons/fi";
+import { FiCheck, FiChevronDown, FiChevronUp, FiX } from "react-icons/fi";
+
+function formatearFechaCorta(fecha) {
+  if (!fecha) {
+    return "N/A";
+  }
+
+  const partesFecha = String(fecha).split("T")[0].split("-");
+  if (partesFecha.length === 3 && partesFecha.every(Boolean)) {
+    const [anio, mes, dia] = partesFecha;
+    return `${dia.padStart(2, "0")}/${mes.padStart(2, "0")}/${anio.slice(-2)}`;
+  }
+
+  const fechaParseada = new Date(fecha);
+  if (Number.isNaN(fechaParseada.getTime())) {
+    return "N/A";
+  }
+
+  return `${String(fechaParseada.getDate()).padStart(2, "0")}/${String(
+    fechaParseada.getMonth() + 1,
+  ).padStart(2, "0")}/${String(fechaParseada.getFullYear()).slice(-2)}`;
+}
 
 export default function DashboardReservas() {
-  const [reservas, setReservas] = useState([]);
   const [reservasAgrupadas, setReservasAgrupadas] = useState([]);
   const [estadoFiltro, setEstadoFiltro] = useState("EN_ESPERA");
   const [tipoUsuarioFiltro, setTipoUsuarioFiltro] = useState("TODOS");
@@ -25,17 +45,9 @@ export default function DashboardReservas() {
   useEffect(() => {
     obtenerReservas();
     obtenerLaboratorios();
+    // Estas consultas solo deben ejecutarse al montar el dashboard.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const DIAS_SEMANA = {
-    Domingo: 0,
-    Lunes: 1,
-    Martes: 2,
-    Miércoles: 3,
-    Jueves: 4,
-    Viernes: 5,
-    Sábado: 6,
-  };
 
   const [showStats, setShowStats] = useState(false);
   const [showStatsGr, setShowStatsGr] = useState(false);
@@ -123,7 +135,6 @@ export default function DashboardReservas() {
     if (error) {
       console.error("Error al obtener reservas:", error);
     } else {
-      setReservas(data);
       agruparReservas(data);
     }
   }
@@ -362,16 +373,6 @@ export default function DashboardReservas() {
   }
 
   function agruparReservas(reservas) {
-    const DIAS_SEMANA_REVERSO = {
-      0: "Domingo",
-      1: "Lunes",
-      2: "Martes",
-      3: "Miércoles",
-      4: "Jueves",
-      5: "Viernes",
-      6: "Sábado",
-    };
-
     const agrupadas = reservas.reduce((acc, reserva) => {
       // Usar grupo_id como clave primaria de agrupación, o id si no existe grupo_id
       const groupKey = reserva.grupo_id || reserva.id;
@@ -413,6 +414,7 @@ export default function DashboardReservas() {
             ),
           ],
           ids: [reserva.id],
+          fechaCreacion: reserva.created_at || reserva.fecha,
           diaSemana: undefined,
           laboratorios: reserva.laboratorios || { nombre: "N/A" },
         };
@@ -489,6 +491,7 @@ export default function DashboardReservas() {
       "Tipo de Usuario": grupo.tiposUsuarios,
       Laboratorio: grupo.laboratorios?.nombre || "N/A",
       Motivo: grupo.motivo_uso,
+      "Creada en": formatearFechaCorta(grupo.fechaCreacion),
       Correos: grupo.correos,
       Horarios: grupo.horarios,
       Estado: grupo.estado,
@@ -513,6 +516,7 @@ export default function DashboardReservas() {
       { wch: 15 }, // Tipo de Usuario
       { wch: 20 }, // Laboratorio
       { wch: 40 }, // Motivo
+      { wch: 12 }, // Creada en
       { wch: 30 }, // Correos
       { wch: 20 }, // Horarios
       { wch: 15 }, // Estado
@@ -664,6 +668,9 @@ export default function DashboardReservas() {
                   Correos
                 </th>
                 <th className="px-4 py-2 border-b whitespace-nowrap">
+                  Fecha
+                </th>
+                <th className="px-4 py-2 border-b whitespace-nowrap">
                   Horarios
                 </th>
                 <th className="px-4 py-2 border-b whitespace-nowrap">Estado</th>
@@ -686,12 +693,39 @@ export default function DashboardReservas() {
                       </td>
                       <td className="px-4 py-2">{grupo.motivo_uso}</td>
                       <td className="px-4 py-2">{grupo.correos}</td>
+                      <td className="px-4 py-2 whitespace-nowrap">
+                        {formatearFechaCorta(grupo.fechaCreacion)}
+                      </td>
                       <td className="px-4 py-2">{grupo.horarios}</td>
                       <td className="px-4 py-2 font-semibold">
                         {grupo.estado}
                       </td>
                       <td className="px-4 py-4">
                         <div className="flex items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              toggleReserva(grupo);
+                            }}
+                            className="bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600 transition text-xs flex items-center justify-center"
+                            aria-label={
+                              reservaExpandida === grupo
+                                ? "Ocultar calendario"
+                                : "Mostrar calendario"
+                            }
+                            title={
+                              reservaExpandida === grupo
+                                ? "Ocultar calendario"
+                                : "Mostrar calendario"
+                            }
+                          >
+                            {reservaExpandida === grupo ? (
+                              <FiChevronUp size={16} />
+                            ) : (
+                              <FiChevronDown size={16} />
+                            )}
+                          </button>
                           {grupo.estado === "EN_ESPERA" ? (
                             <>
                               <button
@@ -748,7 +782,7 @@ export default function DashboardReservas() {
                     </tr>
                     {reservaExpandida === grupo && (
                       <tr className="bg-gray-50">
-                        <td colSpan="8" className="px-3 py-3">
+                        <td colSpan="9" className="px-3 py-3">
                           <div className="flex justify-center items-center mt-2">
                             <Calendar
                               key={
@@ -768,9 +802,6 @@ export default function DashboardReservas() {
                                   ? "!bg-blue-500 text-white font-bold rounded-full opacity-80"
                                   : "";
                               }}
-                              onClickDay={(date) =>
-                                console.log("Fecha seleccionada:", date)
-                              }
                             />
                           </div>
                         </td>
@@ -780,7 +811,7 @@ export default function DashboardReservas() {
                 ))}
               {reservasFiltradas.length === 0 && (
                 <tr>
-                  <td colSpan="8" className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan="9" className="px-4 py-8 text-center text-gray-500">
                     No hay reservas para mostrar con los filtros seleccionados.
                   </td>
                 </tr>
