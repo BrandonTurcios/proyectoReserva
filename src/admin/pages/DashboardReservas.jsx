@@ -141,7 +141,7 @@ export default function DashboardReservas() {
   // Memoizamos el componente para preservar su estado
   const memoizedStats = useMemo(
     () => (
-      <div className="mb-8 p-6 bg-white rounded-lg shadow-md">
+      <div className="mb-8 p-4 md:p-6 bg-white rounded-lg shadow-md">
         <PorcentajeUso />
       </div>
     ),
@@ -150,7 +150,7 @@ export default function DashboardReservas() {
 
   const memoizedStatsGr = useMemo(
     () => (
-      <div className="mb-8 p-6 bg-white rounded-lg shadow-md">
+      <div className="mb-8 p-4 md:p-6 bg-white rounded-lg shadow-md">
         <GraficaReservas />
       </div>
     ),
@@ -159,7 +159,7 @@ export default function DashboardReservas() {
 
   const memoizedStatsIn = useMemo(
     () => (
-      <div className="mb-8 p-6 bg-white rounded-lg shadow-md">
+      <div className="mb-8 p-4 md:p-6 bg-white rounded-lg shadow-md">
         <IncidentesTabla />
       </div>
     ),
@@ -293,10 +293,13 @@ export default function DashboardReservas() {
   const generarOcurrenciasReserva = () => {
     if (
       reservaGrupal.bloques.some(
-        (bloque) => bloque.horarioIds.length === 0 || bloque.fechas.length === 0,
+        (bloque) =>
+          bloque.horarioIds.length === 0 || bloque.fechas.length === 0,
       )
     ) {
-      throw new Error("Cada bloque debe tener al menos un horario y fechas seleccionadas.");
+      throw new Error(
+        "Cada bloque debe tener al menos un horario y fechas seleccionadas.",
+      );
     }
 
     const horariosPorFecha = new Map();
@@ -389,7 +392,8 @@ export default function DashboardReservas() {
       const conflictos = new Set(
         (reservasExistentes || []).flatMap((reserva) =>
           (reserva.reservaciones_horarios || []).map(
-            (relacion) => `${String(reserva.fecha).slice(0, 10)}:${relacion.horario_id}`,
+            (relacion) =>
+              `${String(reserva.fecha).slice(0, 10)}:${relacion.horario_id}`,
           ),
         ),
       );
@@ -464,10 +468,12 @@ export default function DashboardReservas() {
         .insert(horariosParaInsertar);
       if (horariosError) throw horariosError;
 
-      const usuariosParaInsertar = reservacionesCreadas.map((reservacionId) => ({
-        reservacion_id: reservacionId,
-        usuario_id: responsableId,
-      }));
+      const usuariosParaInsertar = reservacionesCreadas.map(
+        (reservacionId) => ({
+          reservacion_id: reservacionId,
+          usuario_id: responsableId,
+        }),
+      );
 
       const { error: usuariosError } = await cliente
         .from("reservaciones_usuarios")
@@ -909,8 +915,8 @@ export default function DashboardReservas() {
   );
 
   return (
-    <div className="p-6 bg-gray-100 min-h-screen">
-      <h1 className="text-4xl font-bold mb-6 text-center text-gray-800">
+    <div className="px-2 py-4 md:p-6 bg-gray-100 min-h-screen">
+      <h1 className="text-xl md:text-4xl font-bold mb-4 md:mb-6 text-center text-gray-800">
         Dashboard de Reservas
       </h1>
 
@@ -918,7 +924,7 @@ export default function DashboardReservas() {
         <button
           type="button"
           onClick={abrirReservaGrupal}
-          className="inline-flex items-center gap-2 rounded-lg bg-[#0f49b6] px-6 py-3 text-lg font-semibold text-white shadow-md transition-colors hover:bg-[#06065c]"
+          className="inline-flex items-center gap-2 rounded-lg bg-[#0f49b6] px-4 py-2 md:px-6 md:py-3 text-base md:text-lg font-semibold text-white shadow-md transition-colors hover:bg-[#06065c]"
         >
           <FiPlus size={20} />
           Nueva reserva grupal
@@ -931,7 +937,7 @@ export default function DashboardReservas() {
         <div className="w-full text-center">
           <button
             onClick={() => setShowStatsGr(!showStatsGr)}
-            className="w-full mb-2 px-6 py-3 bg-cyan-600 text-white rounded-lg hover:bg-[#4D4DFF] transition-colors text-lg"
+            className="w-full mb-2 px-4 py-2.5 md:px-6 md:py-3 bg-cyan-600 text-white rounded-lg hover:bg-[#4D4DFF] transition-colors text-base md:text-lg"
           >
             {showStatsGr
               ? "Ocultar Gráfica de Reservas Aprobadas"
@@ -944,7 +950,7 @@ export default function DashboardReservas() {
         <div className="w-full text-center">
           <button
             onClick={() => setShowStats(!showStats)}
-            className="w-full mb-2 px-6 py-3 bg-[#4B9CD3] text-white rounded-lg hover:bg-[#4D4DFF] transition-colors text-lg"
+            className="w-full mb-2 px-4 py-2.5 md:px-6 md:py-3 bg-[#4B9CD3] text-white rounded-lg hover:bg-[#4D4DFF] transition-colors text-base md:text-lg"
           >
             {showStats
               ? "Ocultar Porcentajes de Uso"
@@ -957,7 +963,7 @@ export default function DashboardReservas() {
         <div className="w-full text-center">
           <button
             onClick={() => setShowStatsIn(!showStatsIn)}
-            className="w-full mb-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-[#4D4DFF] transition-colors text-lg"
+            className="w-full mb-2 px-4 py-2.5 md:px-6 md:py-3 bg-blue-600 text-white rounded-lg hover:bg-[#4D4DFF] transition-colors text-base md:text-lg"
           >
             {showStatsIn ? "Ocultar Incidentes" : "Mostrar Incidentes"}
           </button>
@@ -966,22 +972,24 @@ export default function DashboardReservas() {
       </div>
 
       {/* Sección de filtros y tabla */}
-      <div className="p-6 bg-white rounded-lg shadow-md">
+      <div className="p-3 md:p-6 bg-white rounded-lg shadow-md">
         <h2 className="text-xl font-semibold mb-4 text-gray-700">
           Gestión de Reservas
         </h2>
 
         {/* Filtros */}
-        <div className="mb-4 flex justify-center space-x-4">
+        <div className="mb-4 flex flex-wrap justify-center gap-3">
           <div>
-            <label className="mr-2 font-semibold">Filtrar por estado:</label>
+            <label className="mr-2 font-semibold text-sm md:text-base">
+              Filtrar por estado:
+            </label>
             <select
               value={estadoFiltro}
               onChange={(e) => {
                 setEstadoFiltro(e.target.value);
                 setCurrentPage(1);
               }}
-              className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="EN_ESPERA">En Espera</option>
               <option value="APROBADA">Aprobada</option>
@@ -990,7 +998,7 @@ export default function DashboardReservas() {
           </div>
 
           <div>
-            <label className="mr-2 font-semibold">
+            <label className="mr-2 font-semibold text-sm md:text-base">
               Filtrar por tipo de usuario:
             </label>
             <select
@@ -999,7 +1007,7 @@ export default function DashboardReservas() {
                 setTipoUsuarioFiltro(e.target.value);
                 setCurrentPage(1);
               }}
-              className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="TODOS">Todos</option>
               <option value="Docente">Docente</option>
@@ -1010,7 +1018,7 @@ export default function DashboardReservas() {
           </div>
 
           <div>
-            <label className="mr-2 font-semibold">
+            <label className="mr-2 font-semibold text-sm md:text-base">
               Filtrar por laboratorio:
             </label>
             <select
@@ -1019,7 +1027,7 @@ export default function DashboardReservas() {
                 setLaboratorioFiltro(e.target.value);
                 setCurrentPage(1);
               }}
-              className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="TODOS">Todos</option>
               {laboratorios.map((laboratorio) => (
@@ -1045,19 +1053,17 @@ export default function DashboardReservas() {
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg bg-blue-600 px-4 py-2 text-xs md:text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Anterior
             </button>
-            <span className="text-sm font-medium text-gray-600">
+            <span className="text-xs md:text-sm font-medium text-gray-600">
               Página {currentPage} de {totalPages}
             </span>
             <button
-              onClick={() =>
-                setCurrentPage((p) => Math.min(totalPages, p + 1))
-              }
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg bg-blue-600 px-4 py-2 text-xs md:text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Siguiente
             </button>
@@ -1068,112 +1074,87 @@ export default function DashboardReservas() {
         <div className="overflow-x-auto w-full">
           <table className="w-full bg-white shadow-lg rounded-lg border border-gray-300">
             <thead>
-              <tr className="bg-blue-600 text-white text-left text-sm">
-                <th className="px-4 py-2 border-b whitespace-nowrap">Nombre</th>
-                <th className="px-4 py-2 border-b whitespace-nowrap">Tipo</th>
-                <th className="px-4 py-2 border-b whitespace-nowrap">
+              <tr className="bg-blue-600 text-white text-left text-xs md:text-sm">
+                <th className="px-2 py-2 md:px-4 border-b whitespace-nowrap">
+                  Nombre
+                </th>
+                <th className="px-2 py-2 md:px-4 border-b whitespace-nowrap">
+                  Tipo
+                </th>
+                <th className="px-2 py-2 md:px-4 border-b whitespace-nowrap">
                   Laboratorio
                 </th>
-                <th className="px-4 py-2 border-b whitespace-nowrap">Motivo</th>
-                <th className="px-4 py-2 border-b whitespace-nowrap">
+                <th className="px-2 py-2 md:px-4 border-b whitespace-nowrap">
+                  Motivo
+                </th>
+                <th className="px-2 py-2 md:px-4 border-b whitespace-nowrap">
                   Correos
                 </th>
-                <th className="px-4 py-2 border-b whitespace-nowrap">
+                <th className="px-2 py-2 md:px-4 border-b whitespace-nowrap">
                   Fecha
                 </th>
-                <th className="px-4 py-2 border-b whitespace-nowrap">
+                <th className="px-2 py-2 md:px-4 border-b whitespace-nowrap">
                   Horarios
                 </th>
-                <th className="px-4 py-2 border-b whitespace-nowrap">Estado</th>
-                <th className="px-4 py-2 border-b whitespace-nowrap">
+                <th className="px-2 py-2 md:px-4 border-b whitespace-nowrap">
+                  Estado
+                </th>
+                <th className="px-2 py-2 md:px-4 border-b whitespace-nowrap">
                   Acciones
                 </th>
               </tr>
             </thead>
             <tbody>
               {paginatedReservas.map((grupo) => (
-                  <React.Fragment key={grupo.ids.join("-")}>
-                    <tr
-                      className="border-t hover:bg-gray-200 transition-colors cursor-pointer text-sm"
-                      onClick={() => toggleReserva(grupo)}
-                    >
-                      <td className="px-4 py-2">{grupo.nombresUsuarios}</td>
-                      <td className="px-4 py-2">{grupo.tiposUsuarios}</td>
-                      <td className="px-4 py-2">
-                        {grupo.laboratorios?.nombre || "N/A"}
-                      </td>
-                      <td className="px-4 py-2">{grupo.motivo_uso}</td>
-                      <td className="px-4 py-2">{grupo.correos}</td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        {formatearFechaCorta(grupo.fechaCreacion)}
-                      </td>
-                      <td className="px-4 py-2">{grupo.horarios}</td>
-                      <td className="px-4 py-2 font-semibold">
-                        {grupo.estado}
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              toggleReserva(grupo);
-                            }}
-                            className="bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600 transition text-xs flex items-center justify-center"
-                            aria-label={
-                              reservaExpandida === grupo
-                                ? "Ocultar calendario"
-                                : "Mostrar calendario"
-                            }
-                            title={
-                              reservaExpandida === grupo
-                                ? "Ocultar calendario"
-                                : "Mostrar calendario"
-                            }
-                          >
-                            {reservaExpandida === grupo ? (
-                              <FiChevronUp size={16} />
-                            ) : (
-                              <FiChevronDown size={16} />
-                            )}
-                          </button>
-                          {grupo.estado === "EN_ESPERA" ? (
-                            <>
-                              <button
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  actualizarEstadoGrupo(
-                                    grupo.ids,
-                                    "APROBADA",
-                                    grupo,
-                                  );
-                                }}
-                                className="bg-green-500 text-white px-3 py-1 rounded-lg hover:bg-green-600 transition text-xs flex items-center justify-center"
-                              >
-                                <FiCheck size={16} />
-                              </button>
-
-                              <button
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  abrirModalRechazo(grupo);
-                                }}
-                                className="bg-red-500 text-white px-3 py-1 rounded-lg hover:bg-red-600 transition text-xs flex items-center justify-center"
-                              >
-                                <FiX size={16} />
-                              </button>
-                            </>
-                          ) : grupo.estado === "APROBADA" ? (
-                            <button
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                abrirModalRechazo(grupo);
-                              }}
-                              className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg transition text-xs flex items-center justify-center"
-                            >
-                              <FiX size={16} />
-                            </button>
+                <React.Fragment key={grupo.ids.join("-")}>
+                  <tr
+                    className="border-t hover:bg-gray-200 transition-colors cursor-pointer text-xs md:text-sm"
+                    onClick={() => toggleReserva(grupo)}
+                  >
+                    <td className="px-2 py-2 md:px-4">
+                      {grupo.nombresUsuarios}
+                    </td>
+                    <td className="px-2 py-2 md:px-4">{grupo.tiposUsuarios}</td>
+                    <td className="px-2 py-2 md:px-4">
+                      {grupo.laboratorios?.nombre || "N/A"}
+                    </td>
+                    <td className="px-2 py-2 md:px-4">{grupo.motivo_uso}</td>
+                    <td className="px-2 py-2 md:px-4">{grupo.correos}</td>
+                    <td className="px-2 py-2 md:px-4 whitespace-nowrap">
+                      {formatearFechaCorta(grupo.fechaCreacion)}
+                    </td>
+                    <td className="px-2 py-2 md:px-4">{grupo.horarios}</td>
+                    <td className="px-2 py-2 md:px-4 font-semibold">
+                      {grupo.estado}
+                    </td>
+                    <td className="px-2 py-4 md:px-4">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            toggleReserva(grupo);
+                          }}
+                          className="bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600 transition text-xs flex items-center justify-center"
+                          aria-label={
+                            reservaExpandida === grupo
+                              ? "Ocultar calendario"
+                              : "Mostrar calendario"
+                          }
+                          title={
+                            reservaExpandida === grupo
+                              ? "Ocultar calendario"
+                              : "Mostrar calendario"
+                          }
+                        >
+                          {reservaExpandida === grupo ? (
+                            <FiChevronUp size={16} />
                           ) : (
+                            <FiChevronDown size={16} />
+                          )}
+                        </button>
+                        {grupo.estado === "EN_ESPERA" ? (
+                          <>
                             <button
                               onClick={(event) => {
                                 event.stopPropagation();
@@ -1183,18 +1164,54 @@ export default function DashboardReservas() {
                                   grupo,
                                 );
                               }}
-                              className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-lg transition text-xs flex items-center justify-center"
+                              className="bg-green-500 text-white px-3 py-1 rounded-lg hover:bg-green-600 transition text-xs flex items-center justify-center"
                             >
                               <FiCheck size={16} />
                             </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                    {reservaExpandida === grupo && (
-                      <tr className="bg-gray-50">
-                        <td colSpan="9" className="px-3 py-3">
-                          <div className="flex justify-center items-center mt-2">
+
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                abrirModalRechazo(grupo);
+                              }}
+                              className="bg-red-500 text-white px-3 py-1 rounded-lg hover:bg-red-600 transition text-xs flex items-center justify-center"
+                            >
+                              <FiX size={16} />
+                            </button>
+                          </>
+                        ) : grupo.estado === "APROBADA" ? (
+                          <button
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              abrirModalRechazo(grupo);
+                            }}
+                            className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg transition text-xs flex items-center justify-center"
+                          >
+                            <FiX size={16} />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              actualizarEstadoGrupo(
+                                grupo.ids,
+                                "APROBADA",
+                                grupo,
+                              );
+                            }}
+                            className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-lg transition text-xs flex items-center justify-center"
+                          >
+                            <FiCheck size={16} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                  {reservaExpandida === grupo && (
+                    <tr className="bg-gray-50">
+                      <td colSpan="9" className="px-3 py-3">
+                        <div className="flex justify-center items-center mt-2">
+                          <div className="max-w-[320px] w-full">
                             <Calendar
                               key={
                                 reservaExpandida
@@ -1215,14 +1232,18 @@ export default function DashboardReservas() {
                               }}
                             />
                           </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))}
               {paginatedReservas.length === 0 && (
                 <tr>
-                  <td colSpan="9" className="px-4 py-8 text-center text-gray-500">
+                  <td
+                    colSpan="9"
+                    className="px-4 py-8 text-center text-gray-500"
+                  >
                     No hay reservas para mostrar con los filtros seleccionados.
                   </td>
                 </tr>
@@ -1234,7 +1255,7 @@ export default function DashboardReservas() {
 
       {reservaGrupalAbierta && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-7">
+          <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white p-3 shadow-2xl sm:p-5 md:p-7">
             <div className="mb-6 flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
@@ -1290,7 +1311,6 @@ export default function DashboardReservas() {
                       ))}
                     </select>
                   </div>
-
                 </div>
 
                 <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -1362,32 +1382,8 @@ export default function DashboardReservas() {
                       <option value="Docente">Docente</option>
                       <option value="Administrativo">Administrativo</option>
                     </select>
-        </div>
-
-        {totalPages > 1 && (
-          <div className="mt-4 flex items-center justify-center gap-3">
-            <button
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Anterior
-            </button>
-            <span className="text-sm font-medium text-gray-600">
-              Página {currentPage} de {totalPages}
-            </span>
-            <button
-              onClick={() =>
-                setCurrentPage((p) => Math.min(totalPages, p + 1))
-              }
-              disabled={currentPage === totalPages}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Siguiente
-            </button>
-          </div>
-        )}
-      </div>
+                  </div>
+                </div>
 
                 <div className="mt-4">
                   <label
@@ -1417,7 +1413,8 @@ export default function DashboardReservas() {
                       Bloques de horario
                     </h3>
                     <p className="mt-1 text-sm text-gray-500">
-                      Selecciona directamente en el calendario las fechas de cada horario.
+                      Selecciona directamente en el calendario las fechas de
+                      cada horario.
                     </p>
                   </div>
                   <button
@@ -1490,7 +1487,9 @@ export default function DashboardReservas() {
                         styles={{
                           control: (base, state) => ({
                             ...base,
-                            borderColor: state.isDisabled ? "#d1d5db" : "#d1d5db",
+                            borderColor: state.isDisabled
+                              ? "#d1d5db"
+                              : "#d1d5db",
                             borderRadius: "0.5rem",
                             minHeight: "42px",
                             boxShadow: state.isFocused
@@ -1504,23 +1503,25 @@ export default function DashboardReservas() {
                         }}
                       />
 
-                      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,auto)_1fr] lg:items-start">
+                      <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,auto)_1fr] md:items-start">
                         <div>
                           <p className="mb-2 text-sm font-medium text-gray-700">
                             Fechas de uso
                           </p>
-                          <Calendar
-                            locale="es"
-                            value={null}
-                            onClickDay={(fecha) =>
-                              alternarFechaBloque(bloque.id, fecha)
-                            }
-                            tileClassName={({ date }) =>
-                              bloque.fechas.includes(formatearFechaISO(date))
-                                ? "!bg-blue-600 !text-white rounded-full font-semibold"
-                                : ""
-                            }
-                          />
+                          <div className="max-w-[280px]">
+                            <Calendar
+                              locale="es"
+                              value={null}
+                              onClickDay={(fecha) =>
+                                alternarFechaBloque(bloque.id, fecha)
+                              }
+                              tileClassName={({ date }) =>
+                                bloque.fechas.includes(formatearFechaISO(date))
+                                  ? "!bg-blue-600 !text-white rounded-full font-semibold"
+                                  : ""
+                              }
+                            />
+                          </div>
                         </div>
                         <div>
                           <p className="mb-2 text-sm font-medium text-gray-700">
@@ -1595,7 +1596,7 @@ export default function DashboardReservas() {
 
       {rechazoModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-4 sm:p-6">
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h2 className="text-xl font-semibold text-gray-800">
