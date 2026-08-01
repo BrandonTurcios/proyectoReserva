@@ -84,6 +84,8 @@ export default function DashboardReservas() {
   const [fechaInicialCalendario, setFechaInicialCalendario] = useState(
     new Date(),
   );
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 15;
 
   useEffect(() => {
     obtenerReservas();
@@ -899,6 +901,13 @@ export default function DashboardReservas() {
         grupo.laboratorios?.nombre === laboratorioFiltro),
   );
 
+  const totalPages = Math.ceil(reservasFiltradas.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedReservas = reservasFiltradas.slice(
+    startIndex,
+    startIndex + ITEMS_PER_PAGE,
+  );
+
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
       <h1 className="text-4xl font-bold mb-6 text-center text-gray-800">
@@ -968,7 +977,10 @@ export default function DashboardReservas() {
             <label className="mr-2 font-semibold">Filtrar por estado:</label>
             <select
               value={estadoFiltro}
-              onChange={(e) => setEstadoFiltro(e.target.value)}
+              onChange={(e) => {
+                setEstadoFiltro(e.target.value);
+                setCurrentPage(1);
+              }}
               className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="EN_ESPERA">En Espera</option>
@@ -983,7 +995,10 @@ export default function DashboardReservas() {
             </label>
             <select
               value={tipoUsuarioFiltro}
-              onChange={(e) => setTipoUsuarioFiltro(e.target.value)}
+              onChange={(e) => {
+                setTipoUsuarioFiltro(e.target.value);
+                setCurrentPage(1);
+              }}
               className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="TODOS">Todos</option>
@@ -1000,7 +1015,10 @@ export default function DashboardReservas() {
             </label>
             <select
               value={laboratorioFiltro}
-              onChange={(e) => setLaboratorioFiltro(e.target.value)}
+              onChange={(e) => {
+                setLaboratorioFiltro(e.target.value);
+                setCurrentPage(1);
+              }}
               className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="TODOS">Todos</option>
@@ -1021,6 +1039,30 @@ export default function DashboardReservas() {
             </button>
           </div>
         </div>
+
+        {totalPages > 1 && (
+          <div className="mb-4 flex items-center justify-center gap-3">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Anterior
+            </button>
+            <span className="text-sm font-medium text-gray-600">
+              Página {currentPage} de {totalPages}
+            </span>
+            <button
+              onClick={() =>
+                setCurrentPage((p) => Math.min(totalPages, p + 1))
+              }
+              disabled={currentPage === totalPages}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Siguiente
+            </button>
+          </div>
+        )}
 
         {/* Tabla de reservas */}
         <div className="overflow-x-auto w-full">
@@ -1049,7 +1091,7 @@ export default function DashboardReservas() {
               </tr>
             </thead>
             <tbody>
-              {reservasFiltradas.map((grupo) => (
+              {paginatedReservas.map((grupo) => (
                   <React.Fragment key={grupo.ids.join("-")}>
                     <tr
                       className="border-t hover:bg-gray-200 transition-colors cursor-pointer text-sm"
@@ -1178,7 +1220,7 @@ export default function DashboardReservas() {
                     )}
                   </React.Fragment>
                 ))}
-              {reservasFiltradas.length === 0 && (
+              {paginatedReservas.length === 0 && (
                 <tr>
                   <td colSpan="9" className="px-4 py-8 text-center text-gray-500">
                     No hay reservas para mostrar con los filtros seleccionados.
@@ -1320,8 +1362,32 @@ export default function DashboardReservas() {
                       <option value="Docente">Docente</option>
                       <option value="Administrativo">Administrativo</option>
                     </select>
-                  </div>
-                </div>
+        </div>
+
+        {totalPages > 1 && (
+          <div className="mt-4 flex items-center justify-center gap-3">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Anterior
+            </button>
+            <span className="text-sm font-medium text-gray-600">
+              Página {currentPage} de {totalPages}
+            </span>
+            <button
+              onClick={() =>
+                setCurrentPage((p) => Math.min(totalPages, p + 1))
+              }
+              disabled={currentPage === totalPages}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Siguiente
+            </button>
+          </div>
+        )}
+      </div>
 
                 <div className="mt-4">
                   <label
