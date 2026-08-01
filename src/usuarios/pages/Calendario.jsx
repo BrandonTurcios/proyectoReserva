@@ -271,6 +271,20 @@ const MiCalendario = () => {
 
   return (
     <div className="min-h-screen bg-[#06065c] px-3 py-6">
+      <style>{`
+        .reservation-calendar .rbc-event {
+          padding: 1px 3px !important;
+          font-size: 0.68rem !important;
+          border-radius: 2px !important;
+        }
+        .reservation-calendar .rbc-event-content {
+          font-size: 0.85rem !important;
+          line-height: 1.15 !important;
+        }
+        .reservation-calendar .rbc-event-label {
+          font-size: 0.6rem !important;
+        }
+      `}</style>
       <div className="mx-auto w-full max-w-6xl">
         <div className="rounded-2xl bg-white p-4 shadow-2xl sm:p-6 md:p-8">
           <div className="mb-6 text-center">

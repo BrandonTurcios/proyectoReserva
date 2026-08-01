@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import React, { useEffect, useState, useMemo } from "react";
+import { motion } from "framer-motion";
+import Select from "react-select";
 import { supabase } from "../../shared/services/supabaseClient";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
@@ -7,6 +9,7 @@ import GraficaReservas from "../components/GraficaReservas";
 import PorcentajeUso from "../components/PorcentajeUso";
 import IncidentesTabla from "../components/IncidentesTabla";
 import * as XLSX from "xlsx";
+import { message } from "antd";
 import {
   FiCheck,
   FiChevronDown,
@@ -32,7 +35,7 @@ function crearFechaLocalDesdeISO(fecha) {
 function crearBloqueHorario() {
   return {
     id: crypto.randomUUID(),
-    horarioId: "",
+    horarioIds: [],
     fechas: [],
   };
 }
@@ -102,6 +105,8 @@ export default function DashboardReservas() {
   );
   const [errorReservaGrupal, setErrorReservaGrupal] = useState("");
   const [guardandoReservaGrupal, setGuardandoReservaGrupal] = useState(false);
+  const [confirmacionGrupal, setConfirmacionGrupal] = useState(false);
+  const [resumenReservaGrupal, setResumenReservaGrupal] = useState(null);
 
   const abrirModalRechazo = (grupo) => {
     setGrupoARechazar(grupo);
@@ -117,7 +122,7 @@ export default function DashboardReservas() {
 
   const confirmarRechazo = async () => {
     if (!descripcionRechazo.trim()) {
-      window.alert("Por favor ingresa la descripción del rechazo.");
+      message.warning("Por favor ingresa la descripción del rechazo.");
       return;
     }
     if (grupoARechazar) {
@@ -286,10 +291,10 @@ export default function DashboardReservas() {
   const generarOcurrenciasReserva = () => {
     if (
       reservaGrupal.bloques.some(
-        (bloque) => !bloque.horarioId || bloque.fechas.length === 0,
+        (bloque) => bloque.horarioIds.length === 0 || bloque.fechas.length === 0,
       )
     ) {
-      throw new Error("Cada bloque debe tener un horario y fechas seleccionadas.");
+      throw new Error("Cada bloque debe tener al menos un horario y fechas seleccionadas.");
     }
 
     const horariosPorFecha = new Map();
@@ -297,7 +302,7 @@ export default function DashboardReservas() {
     reservaGrupal.bloques.forEach((bloque) => {
       bloque.fechas.forEach((fecha) => {
         const horariosDeLaFecha = horariosPorFecha.get(fecha) || new Set();
-        horariosDeLaFecha.add(Number(bloque.horarioId));
+        bloque.horarioIds.forEach((id) => horariosDeLaFecha.add(Number(id)));
         horariosPorFecha.set(fecha, horariosDeLaFecha);
       });
     });
@@ -470,9 +475,8 @@ export default function DashboardReservas() {
       setReservaGrupalAbierta(false);
       setReservaGrupal(crearFormularioReservaGrupal());
       await obtenerReservas();
-      window.alert(
-        `Reserva grupal creada con ${reservacionesCreadas.length} fechas y estado APROBADA.`,
-      );
+      setResumenReservaGrupal(reservacionesCreadas.length);
+      setConfirmacionGrupal(true);
     } catch (error) {
       if (reservacionesCreadas.length > 0) {
         await cliente
@@ -713,10 +717,17 @@ export default function DashboardReservas() {
       .in("id", ids);
     if (error) {
       console.error("Error al actualizar el estado de la reserva:", error);
-    } else {
-      console.log("Reservas actualizadas correctamente");
-      obtenerReservas();
+      message.error("Error al actualizar la reserva. Intenta de nuevo.");
+      return;
     }
+
+    if (nuevoEstado === "APROBADA") {
+      message.success("Reserva aprobada correctamente.");
+    } else {
+      message.success("Reserva rechazada correctamente.");
+    }
+
+    obtenerReservas();
   }
 
   function agruparReservas(reservas) {
@@ -1383,28 +1394,49 @@ export default function DashboardReservas() {
                         htmlFor={`reserva-grupal-horario-${bloque.id}`}
                         className="mb-1 block text-sm font-medium text-gray-700"
                       >
-                        Horario
+                        Horarios
                       </label>
-                      <select
+                      <Select
                         id={`reserva-grupal-horario-${bloque.id}`}
-                        value={bloque.horarioId}
-                        onChange={(event) =>
+                        options={horarios.map((horario) => ({
+                          value: horario.id,
+                          label: horario.horario,
+                        }))}
+                        isMulti
+                        isSearchable={false}
+                        isDisabled={guardandoReservaGrupal}
+                        value={bloque.horarioIds
+                          .map((id) => {
+                            const horario = horarios.find((h) => h.id === id);
+                            return horario
+                              ? { value: horario.id, label: horario.horario }
+                              : null;
+                          })
+                          .filter(Boolean)}
+                        onChange={(selectedOptions) =>
                           actualizarBloqueHorario(
                             bloque.id,
-                            "horarioId",
-                            event.target.value,
+                            "horarioIds",
+                            selectedOptions.map((opt) => opt.value),
                           )
                         }
-                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                        disabled={guardandoReservaGrupal}
-                      >
-                        <option value="">Selecciona un horario</option>
-                        {horarios.map((horario) => (
-                          <option key={horario.id} value={horario.id}>
-                            {horario.horario}
-                          </option>
-                        ))}
-                      </select>
+                        className="text-sm"
+                        styles={{
+                          control: (base, state) => ({
+                            ...base,
+                            borderColor: state.isDisabled ? "#d1d5db" : "#d1d5db",
+                            borderRadius: "0.5rem",
+                            minHeight: "42px",
+                            boxShadow: state.isFocused
+                              ? "0 0 0 2px #3b82f6"
+                              : "none",
+                            "&:hover": {},
+                            backgroundColor: state.isDisabled
+                              ? "#f3f4f6"
+                              : "#fff",
+                          }),
+                        }}
+                      />
 
                       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,auto)_1fr] lg:items-start">
                         <div>
@@ -1535,6 +1567,39 @@ export default function DashboardReservas() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {confirmacionGrupal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <motion.div
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0, opacity: 0 }}
+            className="mx-4 rounded-lg bg-white p-6 text-center shadow-lg"
+          >
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 120 }}
+              className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-500 text-white"
+            >
+              ✓
+            </motion.div>
+            <h3 className="text-lg font-semibold text-gray-800">
+              Reserva Grupal Creada
+            </h3>
+            <p className="mt-1 text-sm text-gray-600">
+              {resumenReservaGrupal} fechas generadas con estado APROBADA.
+            </p>
+            <button
+              type="button"
+              onClick={() => setConfirmacionGrupal(false)}
+              className="mt-4 rounded-lg bg-blue-600 px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+            >
+              Listo
+            </button>
+          </motion.div>
         </div>
       )}
     </div>
