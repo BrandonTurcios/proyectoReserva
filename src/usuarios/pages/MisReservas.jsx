@@ -1,0 +1,460 @@
+import { useEffect, useState } from "react";
+import { createClient } from '@supabase/supabase-js';
+import { supabase } from "../../shared/services/supabaseClient";
+
+function normalizarFechaReserva(fecha) {
+  const [anio, mes, dia] = String(fecha).split("T")[0].split("-").map(Number);
+  return new Date(anio, mes - 1, dia);
+}
+
+function formatearFechaISO(fecha) {
+  return [
+    fecha.getFullYear(),
+    String(fecha.getMonth() + 1).padStart(2, "0"),
+    String(fecha.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+async function enviarCorreo(destinatario, asunto, cuerpo) {
+    try {
+      const response = await fetch(import.meta.env.VITE_POWERAPPS_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          destinatario: destinatario,
+          asunto: asunto,
+          cuerpo: cuerpo,
+        }),
+      });
+  
+      if (response.ok) return;
+      const errorData = await response.json();
+      console.error("Error al enviar el correo a:", destinatario, errorData);
+    } catch (error) {
+      console.error("Error en la solicitud a:", destinatario, error);
+    }
+}
+
+export default function MisReservas() {
+  const [reservas, setReservas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [estadoFiltro, setEstadoFiltro] = useState("TODAS");
+  const [sortOrder, setSortOrder] = useState("desc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [expandedGroups, setExpandedGroups] = useState(new Set());
+  const [searchTerm, setSearchTerm] = useState("");
+  const ITEMS_PER_PAGE = 15;
+  const inputClass =
+    "w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition";
+  const labelClass = "block text-sm font-medium text-gray-700 mb-1";
+  const sectionTitle =
+    "text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3";
+
+  const fetchReservas = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const correo = localStorage.getItem("email");
+        if (!correo) throw new Error("No se encontró el correo en localStorage");
+
+        // Consulta optimizada para obtener directamente las reservas del usuario
+        const { data: reservasData, error: reservasError } = await supabase
+          .from("reservaciones")
+          .select(`
+            id,
+            motivo_uso,
+            cantidad_usuarios,
+            fecha,
+            estado,
+            laboratorio_id,
+            dias_repeticion,
+            grupo_id,
+            descripcion,
+            laboratorios:laboratorio_id(nombre),
+            reservaciones_usuarios!inner(
+              usuarios!inner(
+                nombre,
+                tipo_usuario,
+                correo
+              )
+            ),
+            reservaciones_horarios(
+              horarios:horario_id(horario)
+            )
+          `)
+          .eq('reservaciones_usuarios.usuarios.correo', correo)
+          .order("fecha", { ascending: true });
+
+        if (reservasError) throw reservasError;
+
+        // Agrupar por grupo_id (UUID) o por id si no hay grupo_id
+        const grupos = reservasData.reduce((acc, reserva) => {
+          const groupKey = reserva.grupo_id || reserva.id;
+          
+          if (!acc[groupKey]) {
+            acc[groupKey] = {
+              grupoId: reserva.grupo_id,
+              reservaId: reserva.id,
+              motivo: reserva.motivo_uso,
+              laboratorio: reserva.laboratorios?.nombre || "No especificado",
+              estado: reserva.estado,
+              descripcionRechazo: reserva.descripcion || "",
+              diasRepeticion: reserva.dias_repeticion,
+              usuario: reserva.reservaciones_usuarios[0]?.usuarios?.nombre || "Desconocido",
+              tipoUsuario: reserva.reservaciones_usuarios[0]?.usuarios?.tipo_usuario || "Desconocido",
+              correo: reserva.reservaciones_usuarios[0]?.usuarios?.correo || "Desconocido",
+              fechas: [],
+              esRecurrente: !!reserva.grupo_id
+            };
+          }
+
+          // Agregar fecha y horarios (corregido el problema de la fecha)
+          const fechaCorrecta = normalizarFechaReserva(reserva.fecha);
+          
+          acc[groupKey].fechas.push({
+            fecha: formatearFechaISO(fechaCorrecta),
+            horarios: reserva.reservaciones_horarios.map(h => h.horarios?.horario).filter(Boolean).sort()
+          });
+
+          return acc;
+        }, {});
+
+        // Ordenar fechas dentro de cada grupo
+        Object.values(grupos).forEach(grupo => {
+          grupo.fechas.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+        });
+
+        const reservasAgrupadas = Object.values(grupos);
+
+        setReservas(reservasAgrupadas);
+      } catch (err) {
+        console.error("Error al obtener reservas:", err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+  useEffect(() => {
+    fetchReservas();
+  }, []);
+
+  const handleCancel = async (grupo) => {
+    try {
+      // Formatear fechas para correo
+      const fechasFormateadas = grupo.fechas
+        .map((fecha) =>
+          new Date(fecha).toLocaleDateString("es-ES", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          })
+        )
+        .join(", ");
+      
+      const cuerpoCorreo = `Buen día, por este medio se le notifica que la siguiente reserva ha sido cancelada: <br>
+        Laboratorio: ${grupo.laboratorios?.nombre}<br>
+        Fecha: ${fechasFormateadas}<br>
+        Horario: ${grupo.horarios}<br>
+        Motivo: ${grupo.motivo_uso}<br>`;
+      
+      await enviarCorreo(grupo.correo, "Reserva Cancelada", cuerpoCorreo);
+      
+      // Opcional: notificar a correos estáticos de administración
+      if(grupo.estado === "APROBADA"){
+        const destinatarioAC = import.meta.env.VITE_CORREO_AC;
+        const destinatarioAC2 = import.meta.env.VITE_CORREO_AC2;
+        const asuntoAC = `Reserva cancelada - ${grupo.laboratorios?.nombre}`;
+        const cuerpoCorreoAC = `Se ha cancelado una reserva para el laboratorio ${grupo.laboratorios?.nombre} por ${grupo.tiposUsuarios} ${grupo.nombresUsuarios}. Fecha: ${fechasFormateadas}, Horario: ${grupo.horarios}.`;
+        
+        await enviarCorreo(destinatarioAC, asuntoAC, cuerpoCorreoAC);
+        await enviarCorreo(destinatarioAC2, asuntoAC, cuerpoCorreoAC);
+      }
+      
+      const supabaseAdmin = createClient(
+        import.meta.env.VITE_SUPABASE_URL,
+        import.meta.env.VITE_SERVICE_ROLE
+      );
+    
+      const { error } = await supabaseAdmin
+        .from("reservaciones")
+        .update({ estado: "CANCELADA" })
+        .eq("id", grupo.reservaId);
+    
+      if (error) {
+        console.error("Error al cancelar la reserva:", error);
+        return;
+      }
+
+      fetchReservas();
+    } catch (err) {
+      console.error("Error en handleCancel:", err);
+    }
+  };
+
+  const reservasFiltradas = reservas
+    .filter(res => estadoFiltro === "TODAS" || res.estado === estadoFiltro)
+    .filter(res => !searchTerm || res.motivo.toLowerCase().includes(searchTerm.toLowerCase()))
+    .sort((a, b) => {
+      const fechaA = a.fechas[0]?.fecha ? new Date(a.fechas[0].fecha).getTime() : 0;
+      const fechaB = b.fechas[0]?.fecha ? new Date(b.fechas[0].fecha).getTime() : 0;
+      return sortOrder === "asc" ? fechaA - fechaB : fechaB - fechaA;
+    });
+
+  const totalPages = Math.ceil(reservasFiltradas.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedReservas = reservasFiltradas.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  const pagination = totalPages > 1 && (
+    <div className="my-5 flex items-center justify-center gap-3">
+      <button
+        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+        disabled={currentPage === 1}
+        className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        Anterior
+      </button>
+      <span className="text-sm font-medium text-gray-600">
+        Página {currentPage} de {totalPages}
+      </span>
+      <button
+        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+        disabled={currentPage === totalPages}
+        className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        Siguiente
+      </button>
+    </div>
+  );
+
+  const formatFecha = (fechaStr) => {
+    const fecha = normalizarFechaReserva(fechaStr);
+    return fecha.toLocaleDateString("es-ES", {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#06065c] flex items-center justify-center px-3 py-6">
+        <div className="w-full max-w-2xl rounded-2xl bg-white p-8 text-center shadow-2xl">
+          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600" />
+          <p className="text-sm text-gray-600">Cargando tus reservas...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#06065c] flex items-center justify-center px-3 py-6">
+        <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl">
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700">
+            <p className="text-sm">Error al cargar reservas: {error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#06065c] flex justify-center px-3 py-6">
+      <div className="w-full max-w-4xl">
+        <div className="rounded-2xl bg-white p-4 shadow-2xl sm:p-6 md:p-8">
+          <div className="mb-6 text-center">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+              <svg
+                className="h-6 w-6"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                aria-hidden="true"
+              >
+                <rect x="3" y="4.5" width="18" height="16" rx="2" />
+                <path strokeLinecap="round" d="M16 2.5v4M8 2.5v4M3 9.5h18" />
+              </svg>
+            </div>
+            <h1 className="text-xl font-bold text-gray-800 sm:text-2xl">Mis Reservas</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              Consulta el estado y los detalles de tus reservaciones.
+            </p>
+          </div>
+
+          {/* Filtro por estado y orden */}
+          <section className="mb-6 rounded-xl border border-gray-100 bg-gray-50 p-4 sm:p-5">
+            <h2 className={sectionTitle}>Filtrar reservas</h2>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="md:col-span-3">
+                <label htmlFor="buscar-motivo" className={labelClass}>
+                  Buscar por motivo
+                </label>
+                <input
+                  id="buscar-motivo"
+                  type="text"
+                  className={inputClass}
+                  placeholder="Ej: clase, investigación..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                />
+              </div>
+              <div>
+                <label htmlFor="filtro-estado" className={labelClass}>
+                  Filtrar por estado
+                </label>
+                <select
+                  id="filtro-estado"
+                  className={inputClass}
+                  value={estadoFiltro}
+                  onChange={(e) => {
+                    setEstadoFiltro(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <option value="TODAS">Todas</option>
+                  <option value="EN_ESPERA">En Espera</option>
+                  <option value="APROBADA">Aprobada</option>
+                  <option value="RECHAZADA">Rechazada</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="orden-fecha" className={labelClass}>
+                  Ordenar por fecha
+                </label>
+                <select
+                  id="orden-fecha"
+                  className={inputClass}
+                  value={sortOrder}
+                  onChange={(e) => {
+                    setSortOrder(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <option value="asc">Más antigua primero</option>
+                  <option value="desc">Más reciente primero</option>
+                </select>
+              </div>
+            </div>
+          </section>
+
+          {/* Listado de reservas */}
+          {reservasFiltradas.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
+              <p className="text-sm text-gray-600">
+                No tienes reservas {estadoFiltro !== "TODAS" ? `con estado ${estadoFiltro}` : ""}
+              </p>
+            </div>
+          ) : (
+            <>
+              {pagination}
+              <div className="space-y-4">
+                {paginatedReservas.map((reserva) => (
+                <div key={reserva.grupoId || reserva.reservaId} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md sm:p-5">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <div>
+                        <h2 className="text-lg font-semibold capitalize text-blue-700 sm:text-xl">
+                          {reserva.motivo}
+                        </h2>
+                        <p className="mt-1 text-sm text-gray-500">
+                          {formatFecha(reserva.fechas[0]?.fecha || "")}
+                        </p>
+                      </div>
+                      <p className="mt-2 text-sm text-gray-600">
+                        <span className="font-medium">Laboratorio:</span> {reserva.laboratorio}
+                      </p>
+                      {reserva.esRecurrente && (
+                        <p className="mt-1 text-sm text-green-600">Reserva recurrente</p>
+                      )}
+                    </div>
+                    <span className={`self-start rounded-full px-3 py-1 text-xs font-semibold ${
+                      reserva.estado === "EN_ESPERA" ? "bg-yellow-100 text-yellow-800" :
+                      reserva.estado === "APROBADA" ? "bg-green-100 text-green-800" :
+                      "bg-red-100 text-red-800"
+                    }`}>
+                      {reserva.estado}
+                    </span>
+                  </div>
+
+                  {/* Fechas y horarios del grupo */}
+                  <div className="mt-4">
+                    {reserva.fechas.length === 1 ? (
+                      <div className="space-y-2">
+                        {reserva.fechas.map((f, i) => (
+                          <div key={i} className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm">
+                            <p className="font-medium text-gray-700">Fecha: {formatFecha(f.fecha)}</p>
+                            <p className="mt-1 text-gray-600">Horarios: {f.horarios.join(", ")}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => {
+                            const next = new Set(expandedGroups);
+                            const key = reserva.grupoId || reserva.reservaId;
+                            if (next.has(key)) next.delete(key);
+                            else next.add(key);
+                            setExpandedGroups(next);
+                          }}
+                          className="text-sm font-medium text-blue-600 transition-colors hover:text-blue-800"
+                        >
+                          {expandedGroups.has(reserva.grupoId || reserva.reservaId)
+                            ? `Ocultar fechas (${reserva.fechas.length}) ▲`
+                            : `Ver fechas (${reserva.fechas.length}) ▼`}
+                        </button>
+                        {expandedGroups.has(reserva.grupoId || reserva.reservaId) && (
+                          <div className="mt-2 space-y-2">
+                            {reserva.fechas.map((f, i) => (
+                              <div key={i} className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm">
+                                <p className="font-medium text-gray-700">Fecha: {formatFecha(f.fecha)}</p>
+                                <p className="mt-1 text-gray-600">Horarios: {f.horarios.join(", ")}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  {reserva.diasRepeticion && (
+                    <div className="mt-4 text-sm">
+                      <p className="font-medium text-gray-700">Días de repetición:</p>
+                      <p className="font-semibold text-gray-800">{reserva.diasRepeticion}</p>
+                    </div>
+                  )}
+                  {reserva.descripcionRechazo && (
+                    <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4">
+                      <p className="text-sm font-semibold text-red-700">Razón del rechazo</p>
+                      <p className="mt-1 whitespace-pre-line text-sm text-gray-700">{reserva.descripcionRechazo}</p>
+                    </div>
+                  )}
+                  {reserva.estado !== "RECHAZADA" && (
+                    <div className="mt-4 flex justify-center border-t border-gray-200 pt-4">
+                      <button onClick={() => handleCancel(reserva)} className="rounded-lg bg-red-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-600">
+                        Cancelar Reserva
+                      </button>
+                    </div>
+                  )}
+                </div>
+                ))}
+              </div>
+
+              {pagination}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

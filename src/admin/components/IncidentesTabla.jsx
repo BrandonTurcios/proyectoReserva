@@ -1,8 +1,8 @@
-import React, { useState, useEffect,memo } from 'react';
-import { supabase } from '../supabaseClient';
+import { useState, useEffect, memo } from 'react';
+import { supabase } from '../../shared/services/supabaseClient';
 import { FiSearch, FiChevronLeft, FiChevronRight, FiAlertCircle, FiCalendar, FiUser, FiLayers, FiMaximize2 } from 'react-icons/fi';
 
-const IncidentesTabla = memo(() => {
+const IncidentesTabla = memo(function IncidentesTabla() {
   const [incidentes, setIncidentes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');

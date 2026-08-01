@@ -35,4 +35,10 @@ export default [
       ],
     },
   },
+  {
+    files: ['tailwind.config.js', 'vite.config.js'],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
 ]

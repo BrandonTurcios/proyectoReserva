@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import es from "date-fns/locale/es";
 import "react-big-calendar/lib/css/react-big-calendar.css";
-import { supabase } from "../supabaseClient";
+import { supabase } from "../../shared/services/supabaseClient";
 
 const locales = { es };
 
@@ -31,6 +31,26 @@ const mensajes = {
   noEventsInRange: "No hay eventos en este rango.",
   showMore: (cantidad) => `+ Ver más (${cantidad})`,
 };
+
+function normalizarFechaReserva(fecha) {
+  const [anio, mes, dia] = String(fecha).split("T")[0].split("-").map(Number);
+  return new Date(anio, mes - 1, dia);
+}
+
+function formatearFechaISO(fecha) {
+  return [
+    fecha.getFullYear(),
+    String(fecha.getMonth() + 1).padStart(2, "0"),
+    String(fecha.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function obtenerHorariosReserva(reserva) {
+  return (reserva.reservaciones_horarios || [])
+    .map((rh) => rh.horarios?.horario)
+    .filter(Boolean)
+    .sort();
+}
 
 const MiCalendario = () => {
   const [eventos, setEventos] = useState([]);
@@ -62,15 +82,11 @@ const MiCalendario = () => {
         return;
       }
   
-      console.log("Datos crudos:", data);
-      
       // Usar la misma lógica de agrupación del dashboard
       const reservasAgrupadas = agruparReservas(data);
-      console.log("Reservas agrupadas:", reservasAgrupadas);
       
       // Convertir a eventos del calendario
       const eventos = convertirAEventos(reservasAgrupadas);
-      console.log("Eventos generados:", eventos);
       setEventos(eventos);
     };
   
@@ -106,21 +122,41 @@ const MiCalendario = () => {
             .map(ru => ru.usuarios?.tipo_usuario)
             .filter(Boolean)
             .join(", ") || "N/A",
-          fechas: [new Date(reserva.fecha.getTime ? reserva.fecha.getTime() : new Date(reserva.fecha).getTime() + new Date(reserva.fecha).getTimezoneOffset() * 60000)],
+          fechas: [normalizarFechaReserva(reserva.fecha)],
+          horariosPorFecha: [
+            {
+              fecha: normalizarFechaReserva(reserva.fecha),
+              horarios: obtenerHorariosReserva(reserva),
+            },
+          ],
           ids: [reserva.id],
           laboratorios: reserva.laboratorios || { nombre: "N/A" }
         };
       } else {
         // Solo agregar si es una fecha nueva
-        const fechaReserva = new Date(reserva.fecha);
-        const fechaAjustada = new Date(fechaReserva.getTime() + fechaReserva.getTimezoneOffset() * 60000);
-        const fechaYaExiste = acc[groupKey].fechas.some(f => 
-          f.toISOString().split('T')[0] === fechaAjustada.toISOString().split('T')[0]
+        const fechaAjustada = normalizarFechaReserva(reserva.fecha);
+        const horariosDeReserva = obtenerHorariosReserva(reserva);
+        const fechaTexto = formatearFechaISO(fechaAjustada);
+        const fechaYaExiste = acc[groupKey].fechas.some(
+          (fecha) => formatearFechaISO(fecha) === fechaTexto,
         );
         if (!fechaYaExiste) {
           acc[groupKey].fechas.push(fechaAjustada);
+          acc[groupKey].horariosPorFecha.push({
+            fecha: fechaAjustada,
+            horarios: horariosDeReserva,
+          });
           acc[groupKey].ids.push(reserva.id);
           acc[groupKey].fechas.sort((a, b) => a - b);
+          acc[groupKey].horariosPorFecha.sort((a, b) => a.fecha - b.fecha);
+        } else {
+          const fechaConHorarios = acc[groupKey].horariosPorFecha.find(
+            (fechaInfo) =>
+              formatearFechaISO(fechaInfo.fecha) === fechaTexto,
+          );
+          fechaConHorarios.horarios = [
+            ...new Set([...fechaConHorarios.horarios, ...horariosDeReserva]),
+          ].sort();
         }
         
         // Unir usuarios únicos por id
@@ -169,15 +205,17 @@ const MiCalendario = () => {
     const eventos = [];
 
     reservasAgrupadas.forEach(grupo => {
-      const horariosArray = grupo.horarios.split(', ').filter(h => h && h !== 'No asignado');
-      
-      grupo.fechas.forEach(fecha => {
-        horariosArray.forEach(horarioTexto => {
+      grupo.horariosPorFecha.forEach(({ fecha, horarios }) => {
+        const horariosDeLaFecha = horarios.filter(
+          (horario) => horario && horario !== "No asignado",
+        );
+
+        horariosDeLaFecha.forEach(horarioTexto => {
           if (horarioTexto.includes(' - ')) {
             const [horaInicio, horaFin] = horarioTexto.split(' - ');
             
             // Formatear la fecha como YYYY-MM-DD
-            const fechaFormateada = fecha.toISOString().split('T')[0];
+            const fechaFormateada = formatearFechaISO(fecha);
             
             try {
               const inicio = parse(
@@ -194,7 +232,7 @@ const MiCalendario = () => {
               // Verificar que las fechas sean válidas
               if (!isNaN(inicio.getTime()) && !isNaN(fin.getTime())) {
                 eventos.push({
-                  id: grupo.ids.join("-"),
+                  id: `${grupo.ids.join("-")}-${fechaFormateada}-${horarioTexto}`,
                   title: grupo.laboratorios?.nombre || "Laboratorio N/A",
                   start: inicio,
                   end: fin,
@@ -220,7 +258,7 @@ const MiCalendario = () => {
   }
 
   const handleEventoClick = (event) => {
-    if (vistaActual !== "agenda" && vistaActual !== "day" && vistaActual !== "week") {
+    if (vistaActual !== "agenda") {
       setEventoSeleccionado(event);
       document.body.classList.add("overflow-hidden");
     }
@@ -232,22 +270,58 @@ const MiCalendario = () => {
   };
 
   return (
-    <div className="relative flex flex-col justify-center items-center h-full min-h-screen bg-blue-900">
-      <div className="absolute top-0 left-0 w-full h-1/2 bg-blue-600 z-0"></div>
-  
-      <div className="relative max-w-6xl w-full mx-auto p-4 md:p-6 bg-white shadow-2xl border border-gray-300 rounded-2xl z-10">
-        <h1 className="text-2xl md:text-3xl font-bold mb-4 text-center text-blue-600">
-          Calendario de Reservaciones
-        </h1>
-  
-        <div className="w-full overflow-x-auto md:overflow-visible md:p-2 rounded-xl">
+    <div className="min-h-screen bg-[#06065c] px-3 py-6">
+      <style>{`
+        .reservation-calendar .rbc-event {
+          padding: 1px 3px !important;
+          font-size: 0.68rem !important;
+          border-radius: 2px !important;
+        }
+        .reservation-calendar .rbc-event-content {
+          font-size: 0.85rem !important;
+          line-height: 1.15 !important;
+        }
+        .reservation-calendar .rbc-event-label {
+          font-size: 0.6rem !important;
+        }
+      `}</style>
+      <div className="mx-auto w-full max-w-6xl">
+        <div className="rounded-2xl bg-white p-4 shadow-2xl sm:p-6 md:p-8">
+          <div className="mb-6 text-center">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+              <svg
+                className="h-6 w-6"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                aria-hidden="true"
+              >
+                <rect x="3" y="4.5" width="18" height="16" rx="2" />
+                <path strokeLinecap="round" d="M16 2.5v4M8 2.5v4M3 9.5h18" />
+              </svg>
+            </div>
+            <h1 className="text-xl font-bold text-gray-800 sm:text-2xl md:text-3xl">
+              Calendario de Reservaciones
+            </h1>
+            <p className="mt-1 text-sm text-gray-500">
+              Consulta la disponibilidad de los laboratorios y sus horarios.
+            </p>
+          </div>
+
+          <div className="reservation-calendar w-full overflow-x-auto overscroll-x-contain rounded-xl border border-gray-100 bg-gray-50 p-2 sm:p-3">
           <Calendar
             localizer={localizer}
             events={eventos}
             startAccessor="start"
             endAccessor="end"
-            style={{ height: "80vh", minHeight: "500px", width: "100%" }} 
-            className="shadow-lg rounded-lg"
+            style={{
+              height: "80vh",
+              minHeight: "500px",
+              width: "100%",
+              minWidth: "780px",
+            }}
+            className="rounded-lg"
             messages={mensajes}
             onView={(view) => setVistaActual(view)}
             onSelectEvent={handleEventoClick}
@@ -257,24 +331,43 @@ const MiCalendario = () => {
                 event: ({ event }) => <span>{event.title}</span>,
               },
             }}
-          />
+            />
+          </div>
         </div>
       </div>
   
       {eventoSeleccionado && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-sm md:max-w-md lg:max-w-lg shadow-lg">
-            <h2 className="text-xl md:text-2xl font-bold mb-4">Detalles de la Reservación</h2>
-            <p><strong>Laboratorio:</strong> {eventoSeleccionado.title}</p>
-            <p><strong>Fecha:</strong> {eventoSeleccionado.fecha}</p>
-            <p><strong>Horario:</strong> {eventoSeleccionado.horarioOriginal}</p>
-            <p><strong>Usuario(s):</strong> {eventoSeleccionado.usuarios}</p>
-            <p><strong>Tipo(s):</strong> {eventoSeleccionado.tiposUsuarios}</p>
-            <p><strong>Motivo:</strong> {eventoSeleccionado.motivo_uso}</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-500/75 p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl sm:p-8">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                  Detalle de reserva
+                </p>
+                <h2 className="mt-1 text-xl font-bold text-gray-800">
+                  {eventoSeleccionado.title}
+                </h2>
+              </div>
+              <button
+                onClick={cerrarModal}
+                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                aria-label="Cerrar detalles"
+              >
+                <span aria-hidden="true">&#10005;</span>
+              </button>
+            </div>
+
+            <div className="space-y-3 rounded-xl border border-gray-100 bg-gray-50 p-4 text-sm">
+              <p><strong className="font-medium text-gray-700">Fecha:</strong> {eventoSeleccionado.fecha}</p>
+              <p><strong className="font-medium text-gray-700">Horario:</strong> {eventoSeleccionado.horarioOriginal}</p>
+              <p><strong className="font-medium text-gray-700">Usuario(s):</strong> {eventoSeleccionado.usuarios}</p>
+              <p><strong className="font-medium text-gray-700">Tipo(s):</strong> {eventoSeleccionado.tiposUsuarios}</p>
+              <p><strong className="font-medium text-gray-700">Motivo:</strong> {eventoSeleccionado.motivo_uso}</p>
+            </div>
     
             <button
               onClick={cerrarModal}
-              className="mt-4 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-700 w-full"
+              className="mt-5 w-full rounded-lg bg-blue-600 px-4 py-2.5 font-medium text-white transition-colors hover:bg-blue-700"
             >
               Cerrar
             </button>

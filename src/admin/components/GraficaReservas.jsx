@@ -1,25 +1,35 @@
-import React, { useEffect, useState,memo } from "react";
-import { supabase } from "../supabaseClient";
+import { useEffect, useState, memo } from "react";
+import PropTypes from "prop-types";
+import { supabase } from "../../shared/services/supabaseClient";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from "recharts";
 
-const GraficaReservas= memo(() => {
+const colores = [
+  "#4A90E2", "#FF6F61", "#6B5B95", "#88B04B", "#F7CAC9", "#92A8D1",
+  "#955251", "#B565A7", "#009B77", "#DD4124", "#D65076", "#45B8AC",
+  "#EFC050", "#5B5EA6", "#9B2335", "#DFCFBE", "#55B4B0", "#E15D44",
+  "#7FCDCD", "#BC243C", "#C3447A", "#98B4D4", "#FF6F61", "#6B5B95",
+  "#88B04B", "#F7CAC9", "#92A8D1", "#955251", "#B565A7", "#009B77",
+];
+
+const Barra = ({ x, y, width, height, index, datosGrafica }) => (
+  <rect x={x} y={y} width={width} height={height} fill={datosGrafica[index].color} />
+);
+
+Barra.propTypes = {
+  x: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+  y: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+  width: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+  height: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+  index: PropTypes.number.isRequired,
+  datosGrafica: PropTypes.arrayOf(PropTypes.object).isRequired,
+};
+
+const GraficaReservas = memo(function GraficaReservas() {
   const [datosGrafica, setDatosGrafica] = useState([]);
   const [isFullScreen, setIsFullScreen] = useState(false);
 
-  // Array de colores para las barras
-  const colores = [
-    "#4A90E2", "#FF6F61", "#6B5B95", "#88B04B", "#F7CAC9", "#92A8D1", 
-    "#955251", "#B565A7", "#009B77", "#DD4124", "#D65076", "#45B8AC", 
-    "#EFC050", "#5B5EA6", "#9B2335", "#DFCFBE", "#55B4B0", "#E15D44", 
-    "#7FCDCD", "#BC243C", "#C3447A", "#98B4D4", "#FF6F61", "#6B5B95", 
-    "#88B04B", "#F7CAC9", "#92A8D1", "#955251", "#B565A7", "#009B77"
-  ];
-
   useEffect(() => {
-    obtenerReservasAprobadas();
-  }, []);
-
-  async function obtenerReservasAprobadas() {
+    async function obtenerReservasAprobadas() {
     const { data, error } = await supabase
       .from("reservaciones")
       .select("id, estado, laboratorio_id, laboratorios(nombre)")
@@ -43,7 +53,10 @@ const GraficaReservas= memo(() => {
     }));
 
     setDatosGrafica(datos);
-  }
+    }
+
+    obtenerReservasAprobadas();
+  }, []);
 
   const toggleFullScreen = () => {
     if (!isFullScreen) {
@@ -98,11 +111,7 @@ const GraficaReservas= memo(() => {
           <Bar
             dataKey="reservas"
             fillOpacity={1}
-            shape={(props) => {
-              const { x, y, width, height, index } = props;
-              const fillColor = datosGrafica[index].color; // Obtener el color correspondiente
-              return <rect x={x} y={y} width={width} height={height} fill={fillColor} />;
-            }}
+            shape={(props) => <Barra {...props} datosGrafica={datosGrafica} />}
           />
         </BarChart>
       </ResponsiveContainer>
@@ -110,4 +119,4 @@ const GraficaReservas= memo(() => {
   );
 });
 
-export default  GraficaReservas;
+export default GraficaReservas;
