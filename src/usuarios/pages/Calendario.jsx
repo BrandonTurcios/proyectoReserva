@@ -284,6 +284,9 @@ const MiCalendario = () => {
         .reservation-calendar .rbc-event-label {
           font-size: 0.6rem !important;
         }
+        .reservation-calendar .rbc-agenda-view {
+          overflow-y: auto;
+        }
       `}</style>
       <div className="mx-auto w-full max-w-6xl">
         <div className="rounded-2xl bg-white p-4 shadow-2xl sm:p-6 md:p-8">
