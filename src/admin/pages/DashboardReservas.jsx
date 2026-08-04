@@ -321,23 +321,13 @@ export default function DashboardReservas() {
   };
 
   async function obtenerOCrearResponsable(cliente) {
-    const correo = reservaGrupal.responsableCorreo.trim().toLowerCase();
-    const { data: responsableExistente, error: consultaError } = await cliente
-      .from("usuarios")
-      .select("id")
-      .eq("correo", correo)
-      .limit(1)
-      .maybeSingle();
-
-    if (consultaError) throw consultaError;
-    if (responsableExistente) return responsableExistente.id;
-
+    // Crea un nuevo usuario sin importar si ya existe, esto se cambiara en el refactor del proyecto
     const { data: responsableNuevo, error: insercionError } = await cliente
       .from("usuarios")
       .insert({
         nombre: reservaGrupal.responsableNombre.trim(),
         numero_cuenta: `ADMIN-${Date.now()}`,
-        correo,
+        correo: reservaGrupal.responsableCorreo.trim().toLowerCase(),
         tipo_usuario: reservaGrupal.tipoResponsable,
       })
       .select("id")
