@@ -9,7 +9,8 @@ import GraficaReservas from "../components/GraficaReservas";
 import PorcentajeUso from "../components/PorcentajeUso";
 import IncidentesTabla from "../components/IncidentesTabla";
 import * as XLSX from "xlsx";
-import { message } from "antd";
+import { DatePicker, message } from "antd";
+import dayjs from "dayjs";
 import {
   FiCheck,
   FiChevronDown,
@@ -32,11 +33,20 @@ function crearFechaLocalDesdeISO(fecha) {
   return new Date(anio, mes - 1, dia);
 }
 
+function fechaMostrarParaISO(texto) {
+  if (!texto) return "";
+  const parsed = dayjs(texto, "DD/MM/YYYY", true);
+  return parsed.isValid() ? parsed.format("YYYY-MM-DD") : "";
+}
+
 function crearBloqueHorario() {
   return {
     id: crypto.randomUUID(),
     horarioIds: [],
-    fechas: [],
+    rangoInicio: "",
+    rangoFin: "",
+    diasSemana: [],
+    fechasExtra: [],
   };
 }
 
@@ -46,9 +56,36 @@ function crearFormularioReservaGrupal() {
     motivo: "",
     responsableNombre: "",
     responsableCorreo: localStorage.getItem("email") || "",
+    responsableCuenta: "",
     tipoResponsable: "Docente",
     bloques: [crearBloqueHorario()],
   };
+}
+
+function fechasDesdeBloque(bloque) {
+  const fechas = new Set();
+
+  const inicioISO = fechaMostrarParaISO(bloque.rangoInicio);
+  const finISO = fechaMostrarParaISO(bloque.rangoFin);
+
+  if (inicioISO && finISO && bloque.diasSemana.length > 0) {
+    const inicio = new Date(inicioISO + "T00:00:00");
+    const fin = new Date(finISO + "T00:00:00");
+    const cursor = new Date(inicio);
+
+    while (cursor <= fin) {
+      const jsDay = cursor.getDay();
+      const diaSemana = jsDay === 0 ? 6 : jsDay - 1;
+      if (bloque.diasSemana.includes(diaSemana)) {
+        fechas.add(formatearFechaISO(cursor));
+      }
+      cursor.setDate(cursor.getDate() + 1);
+    }
+  }
+
+  bloque.fechasExtra.forEach((f) => fechas.add(f));
+
+  return [...fechas].sort();
 }
 
 function formatearFechaCorta(fecha) {
@@ -243,7 +280,35 @@ export default function DashboardReservas() {
     }));
   };
 
-  const alternarFechaBloque = (bloqueId, fecha) => {
+  const actualizarRangoBloque = (bloqueId, campo, valor) => {
+    if (guardandoReservaGrupal) return;
+
+    setReservaGrupal((actual) => ({
+      ...actual,
+      bloques: actual.bloques.map((bloque) =>
+        bloque.id === bloqueId ? { ...bloque, [campo]: valor } : bloque,
+      ),
+    }));
+  };
+
+  const actualizarDiasSemanaBloque = (bloqueId, diaSemana) => {
+    if (guardandoReservaGrupal) return;
+
+    setReservaGrupal((actual) => ({
+      ...actual,
+      bloques: actual.bloques.map((bloque) => {
+        if (bloque.id !== bloqueId) return bloque;
+
+        const diasSemana = bloque.diasSemana.includes(diaSemana)
+          ? bloque.diasSemana.filter((d) => d !== diaSemana)
+          : [...bloque.diasSemana, diaSemana];
+
+        return { ...bloque, diasSemana };
+      }),
+    }));
+  };
+
+  const alternarFechaExtraBloque = (bloqueId, fecha) => {
     if (guardandoReservaGrupal) return;
 
     const fechaSeleccionada = formatearFechaISO(fecha);
@@ -253,13 +318,11 @@ export default function DashboardReservas() {
       bloques: actual.bloques.map((bloque) => {
         if (bloque.id !== bloqueId) return bloque;
 
-        const fechas = bloque.fechas.includes(fechaSeleccionada)
-          ? bloque.fechas.filter(
-              (fechaGuardada) => fechaGuardada !== fechaSeleccionada,
-            )
-          : [...bloque.fechas, fechaSeleccionada].sort();
+        const fechasExtra = bloque.fechasExtra.includes(fechaSeleccionada)
+          ? bloque.fechasExtra.filter((f) => f !== fechaSeleccionada)
+          : [...bloque.fechasExtra, fechaSeleccionada].sort();
 
-        return { ...bloque, fechas };
+        return { ...bloque, fechasExtra };
       }),
     }));
   };
@@ -294,18 +357,19 @@ export default function DashboardReservas() {
     if (
       reservaGrupal.bloques.some(
         (bloque) =>
-          bloque.horarioIds.length === 0 || bloque.fechas.length === 0,
+          bloque.horarioIds.length === 0 ||
+          fechasDesdeBloque(bloque).length === 0,
       )
     ) {
       throw new Error(
-        "Cada bloque debe tener al menos un horario y fechas seleccionadas.",
+        "Cada bloque debe tener al menos un horario y al menos una fecha (define un rango con días de la semana o agrega fechas específicas).",
       );
     }
 
     const horariosPorFecha = new Map();
 
     reservaGrupal.bloques.forEach((bloque) => {
-      bloque.fechas.forEach((fecha) => {
+      fechasDesdeBloque(bloque).forEach((fecha) => {
         const horariosDeLaFecha = horariosPorFecha.get(fecha) || new Set();
         bloque.horarioIds.forEach((id) => horariosDeLaFecha.add(Number(id)));
         horariosPorFecha.set(fecha, horariosDeLaFecha);
@@ -1303,7 +1367,7 @@ export default function DashboardReservas() {
                   </div>
                 </div>
 
-                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div>
                     <label
                       htmlFor="reserva-grupal-responsable"
@@ -1345,6 +1409,29 @@ export default function DashboardReservas() {
                         )
                       }
                       placeholder="docente@unitec.edu"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                      disabled={guardandoReservaGrupal}
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="reserva-grupal-cuenta"
+                      className="mb-1 block text-sm font-medium text-gray-700"
+                    >
+                      Número de cuenta
+                    </label>
+                    <input
+                      id="reserva-grupal-cuenta"
+                      type="text"
+                      value={reservaGrupal.responsableCuenta}
+                      onChange={(event) =>
+                        actualizarReservaGrupal(
+                          "responsableCuenta",
+                          event.target.value,
+                        )
+                      }
+                      placeholder="Ej: 12345678"
                       className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
                       disabled={guardandoReservaGrupal}
                     />
@@ -1403,8 +1490,8 @@ export default function DashboardReservas() {
                       Bloques de horario
                     </h3>
                     <p className="mt-1 text-sm text-gray-500">
-                      Selecciona directamente en el calendario las fechas de
-                      cada horario.
+                      Define un rango de fechas con los días de la semana
+                      deseados, y agrega fechas específicas adicionales.
                     </p>
                   </div>
                   <button
@@ -1493,61 +1580,164 @@ export default function DashboardReservas() {
                         }}
                       />
 
-                      <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,auto)_1fr] md:items-start">
-                        <div>
-                          <p className="mb-2 text-sm font-medium text-gray-700">
-                            Fechas de uso
-                          </p>
-                          <div className="max-w-[280px]">
-                            <Calendar
-                              locale="es"
-                              value={null}
-                              onClickDay={(fecha) =>
-                                alternarFechaBloque(bloque.id, fecha)
+                      <div className="mt-4 space-y-4">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <div>
+                            <label className="mb-1 block text-sm font-medium text-gray-700">
+                              Fecha de inicio
+                            </label>
+                            <DatePicker
+                              value={
+                                bloque.rangoInicio
+                                  ? dayjs(bloque.rangoInicio, "DD/MM/YYYY")
+                                  : null
                               }
-                              tileClassName={({ date }) =>
-                                bloque.fechas.includes(formatearFechaISO(date))
-                                  ? "!bg-blue-600 !text-white rounded-full font-semibold"
-                                  : ""
+                              onChange={(val) =>
+                                actualizarRangoBloque(
+                                  bloque.id,
+                                  "rangoInicio",
+                                  val ? val.format("DD/MM/YYYY") : "",
+                                )
                               }
+                              format="DD/MM/YYYY"
+                              placeholder="dd/mm/aaaa"
+                              disabled={guardandoReservaGrupal}
+                              className="w-full"
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-sm font-medium text-gray-700">
+                              Fecha de fin
+                            </label>
+                            <DatePicker
+                              value={
+                                bloque.rangoFin
+                                  ? dayjs(bloque.rangoFin, "DD/MM/YYYY")
+                                  : null
+                              }
+                              onChange={(val) =>
+                                actualizarRangoBloque(
+                                  bloque.id,
+                                  "rangoFin",
+                                  val ? val.format("DD/MM/YYYY") : "",
+                                )
+                              }
+                              format="DD/MM/YYYY"
+                              placeholder="dd/mm/aaaa"
+                              disabled={guardandoReservaGrupal}
+                              className="w-full"
                             />
                           </div>
                         </div>
+
+                        {bloque.rangoInicio && bloque.rangoFin && (
+                          <div>
+                            <p className="mb-1.5 text-sm font-medium text-gray-700">
+                              Días de la semana a incluir
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {[
+                                { indice: 0, label: "L" },
+                                { indice: 1, label: "M" },
+                                { indice: 2, label: "X" },
+                                { indice: 3, label: "J" },
+                                { indice: 4, label: "V" },
+                                { indice: 5, label: "S" },
+                                { indice: 6, label: "D" },
+                              ].map(({ indice, label }) => (
+                                <button
+                                  key={indice}
+                                  type="button"
+                                  onClick={() =>
+                                    actualizarDiasSemanaBloque(
+                                      bloque.id,
+                                      indice,
+                                    )
+                                  }
+                                  disabled={guardandoReservaGrupal}
+                                  className={`h-9 w-9 rounded-lg text-sm font-semibold transition-colors ${
+                                    bloque.diasSemana.includes(indice)
+                                      ? "bg-blue-600 text-white"
+                                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                                  } disabled:cursor-not-allowed disabled:opacity-50`}
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                         <div>
-                          <p className="mb-2 text-sm font-medium text-gray-700">
-                            Fechas seleccionadas ({bloque.fechas.length})
+                          <p className="mb-1.5 text-sm font-medium text-gray-700">
+                            Fechas específicas adicionales
                           </p>
-                          <div className="max-h-64 overflow-y-auto rounded-lg border border-gray-200 bg-white p-3">
-                            {bloque.fechas.length === 0 ? (
-                              <p className="text-sm text-gray-500">
-                                Selecciona uno o más días en el calendario.
-                              </p>
-                            ) : (
-                              <div className="flex flex-wrap gap-2">
-                                {bloque.fechas.map((fecha) => (
-                                  <button
-                                    key={fecha}
-                                    type="button"
-                                    onClick={() =>
-                                      alternarFechaBloque(
-                                        bloque.id,
-                                        crearFechaLocalDesdeISO(fecha),
-                                      )
-                                    }
-                                    className="rounded-full bg-blue-100 px-3 py-1.5 text-xs font-medium text-blue-800 transition-colors hover:bg-blue-200"
-                                    title="Quitar fecha"
-                                    disabled={guardandoReservaGrupal}
-                                  >
-                                    {formatearFechaCorta(fecha)}
-                                    <span className="ml-1" aria-hidden="true">
-                                      ×
-                                    </span>
-                                  </button>
-                                ))}
+                          <p className="mb-2 text-xs text-gray-500">
+                            Selecciona días puntuales fuera del patrón
+                          </p>
+                          <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,auto)_1fr] md:items-start">
+                            <div className="max-w-[220px]">
+                              <Calendar
+                                locale="es"
+                                value={null}
+                                onClickDay={(fecha) =>
+                                  alternarFechaExtraBloque(bloque.id, fecha)
+                                }
+                                tileClassName={({ date }) =>
+                                  bloque.fechasExtra.includes(
+                                    formatearFechaISO(date),
+                                  )
+                                    ? "!bg-orange-500 !text-white rounded-full font-semibold"
+                                    : ""
+                                }
+                              />
+                            </div>
+                            <div>
+                              <div className="max-h-36 overflow-y-auto rounded-lg border border-gray-200 bg-white p-2">
+                                {bloque.fechasExtra.length === 0 ? (
+                                  <p className="text-xs text-gray-500">
+                                    Ninguna fecha extra seleccionada.
+                                  </p>
+                                ) : (
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {bloque.fechasExtra.map((fecha) => (
+                                      <button
+                                        key={fecha}
+                                        type="button"
+                                        onClick={() =>
+                                          alternarFechaExtraBloque(
+                                            bloque.id,
+                                            crearFechaLocalDesdeISO(fecha),
+                                          )
+                                        }
+                                        className="rounded-full bg-orange-100 px-2.5 py-1 text-xs font-medium text-orange-800 transition-colors hover:bg-orange-200"
+                                        title="Quitar fecha"
+                                        disabled={guardandoReservaGrupal}
+                                      >
+                                        {formatearFechaCorta(fecha)}
+                                        <span className="ml-1" aria-hidden>
+                                          ×
+                                        </span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
-                            )}
+                            </div>
                           </div>
                         </div>
+
+                        {(() => {
+                          const total = fechasDesdeBloque(bloque).length;
+                          return (
+                            <p className="text-sm font-medium text-gray-600">
+                              Total de fechas en este bloque:{" "}
+                              <span className="font-bold text-blue-700">
+                                {total}
+                              </span>
+                            </p>
+                          );
+                        })()}
                       </div>
                     </div>
                   ))}
