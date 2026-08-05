@@ -24,7 +24,8 @@ export default function Inicio({ setCorreo }) {
      
     const emailADMIN_1 = import.meta.env.VITE_ADMIN_1; 
     const emailADMIN_2 = import.meta.env.VITE_ADMIN_2;
-    if (email === emailADMIN_1 || email === emailADMIN_2) {
+    const emailADMIN_3 = import.meta.env.VITE_ADMIN_3;
+    if (email === emailADMIN_1 || email === emailADMIN_2 || email === emailADMIN_3) {
       if (!import.meta.env.VITE_ADMIN_PASSWORD) {
         setAlertMessage("Error de configuración: contacta al administrador.");
         setIsOpen(true);
