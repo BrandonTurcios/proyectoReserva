@@ -56,6 +56,8 @@ VITE_SERVICE_ROLE=eyJhbGciOiJI...
 # Correos de administradores (acceso a /admin)
 VITE_ADMIN_1=admin1@unitec.edu.hn
 VITE_ADMIN_2=admin2@unitec.edu.hn
+VITE_ADMIN_3=admin1@unitec.edu.hn
+VITE_ADMIN_4=admin2@unitec.edu.hn
 VITE_ADMIN_PASSWORD=contraseña_admin
 
 # Correos institucionales para notificaciones
