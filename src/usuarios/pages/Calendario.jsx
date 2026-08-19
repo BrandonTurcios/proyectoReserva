@@ -66,12 +66,15 @@ const MiCalendario = () => {
           grupo_id,
           fecha,
           motivo_uso,
-          cantidad_usuarios,
+          cantidad_personas,
           dias_repeticion,
           estado,
           laboratorio_id,
+          solicitante_nombre,
+          solicitante_tipo,
+          solicitante_correo,
           laboratorios(nombre),
-          reservaciones_usuarios(usuario_id, usuarios(id, nombre, correo, tipo_usuario)),
+          reservaciones_integrantes(nombre, numero_cuenta, es_reservador),
           reservaciones_horarios(horarios(id, horario))
         `)
         .eq("estado", "APROBADA")
@@ -99,29 +102,23 @@ const MiCalendario = () => {
       const groupKey = reserva.grupo_id || reserva.id;
 
       if (!acc[groupKey]) {
-        // Procesar usuarios, usando id para evitar duplicados reales
-        const usuariosInfo = reserva.reservaciones_usuarios || [];
+        // Procesar integrantes, usando numero_cuenta para evitar duplicados reales
+        const integrantesInfo = reserva.reservaciones_integrantes || [];
         acc[groupKey] = {
           ...reserva,
-          usuariosUnicos: usuariosInfo
-            .map(ru => ({
-              id: ru.usuario_id,
-              nombre: ru.usuarios?.nombre?.trim()
+          usuariosUnicos: integrantesInfo
+            .map(ri => ({
+              id: ri.numero_cuenta,
+              nombre: ri.nombre?.trim()
             }))
             .filter(u => u.id && u.nombre),
-          correos: usuariosInfo
-            .map(ru => ru.usuarios?.correo?.trim())
-            .filter(Boolean)
-            .join(", ") || "N/A",
+          correos: reserva.solicitante_correo?.trim() || "N/A",
           horarios: (reserva.reservaciones_horarios || [])
             .map(rh => rh.horarios?.horario)
             .filter(Boolean)
             .sort()
             .join(", ") || "No asignado",
-          tiposUsuarios: usuariosInfo
-            .map(ru => ru.usuarios?.tipo_usuario)
-            .filter(Boolean)
-            .join(", ") || "N/A",
+          tiposUsuarios: reserva.solicitante_tipo || "N/A",
           fechas: [normalizarFechaReserva(reserva.fecha)],
           horariosPorFecha: [
             {
@@ -159,25 +156,31 @@ const MiCalendario = () => {
           ].sort();
         }
         
-        // Unir usuarios únicos por id
-        const nuevosUsuarios = (reserva.reservaciones_usuarios || [])
-          .map(ru => ({
-            id: ru.usuario_id,
-            nombre: ru.usuarios?.nombre?.trim()
+        // Unir integrantes únicos por numero_cuenta
+        const nuevosIntegrantes = (reserva.reservaciones_integrantes || [])
+          .map(ri => ({
+            id: ri.numero_cuenta,
+            nombre: ri.nombre?.trim()
           }))
-          .filter(u => u.id && u.nombre);
+          .filter(i => i.id && i.nombre);
         const usuariosMap = new Map(acc[groupKey].usuariosUnicos.map(u => [u.id, u]));
-        nuevosUsuarios.forEach(u => usuariosMap.set(u.id, u));
+        nuevosIntegrantes.forEach(u => usuariosMap.set(u.id, u));
         acc[groupKey].usuariosUnicos = Array.from(usuariosMap.values());
         
-        // Combinar correos únicos
-        const usuariosInfo = reserva.reservaciones_usuarios || [];
-        const nuevosCorreos = usuariosInfo
-          .map(ru => ru.usuarios?.correo?.trim())
-          .filter(Boolean);
-        const correosExistentes = acc[groupKey].correos.split(', ');
-        const todosCorreos = [...correosExistentes, ...nuevosCorreos];
-        acc[groupKey].correos = [...new Set(todosCorreos)].join(', ');
+        // Combinar correos del solicitante
+        const nuevoCorreo = reserva.solicitante_correo?.trim();
+        if (nuevoCorreo) {
+          const correosExistentes = acc[groupKey].correos.split(', ').filter(Boolean);
+          const todosCorreos = [...correosExistentes, nuevoCorreo];
+          acc[groupKey].correos = [...new Set(todosCorreos)].join(', ');
+        }
+        
+        // Combinar tipos del solicitante
+        const nuevoTipo = reserva.solicitante_tipo;
+        if (nuevoTipo) {
+          const tiposExistentes = acc[groupKey].tiposUsuarios.split(', ').filter(Boolean);
+          acc[groupKey].tiposUsuarios = [...new Set([...tiposExistentes, nuevoTipo])].join(', ');
+        }
         
         // Combinar horarios únicos
         const nuevosHorarios = (reserva.reservaciones_horarios || [])
@@ -239,7 +242,7 @@ const MiCalendario = () => {
                   horarioOriginal: horarioTexto,
                   fecha: fechaFormateada,
                   motivo_uso: grupo.motivo_uso,
-                  cantidad_usuarios: grupo.cantidad_usuarios,
+                  cantidad_personas: grupo.cantidad_personas,
                   dias_repeticion: grupo.dias_repeticion,
                   usuarios: grupo.nombresUsuarios,
                   correos: grupo.correos,

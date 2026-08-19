@@ -97,14 +97,10 @@ export default function CrearReserva() {
       .select(
         `
         id,
+        solicitante_tipo,
         reservaciones_horarios!inner (
           horarios!inner (
             horario
-          )
-        ),
-        reservaciones_usuarios!inner (
-          usuarios!inner (
-            tipo_usuario
           )
         )
       `,
@@ -124,8 +120,7 @@ export default function CrearReserva() {
     let reservasAdministrativo = 0;
 
     data.forEach((reserva) => {
-      const tipoUsuarioReserva =
-        reserva.reservaciones_usuarios[0]?.usuarios?.tipo_usuario;
+      const tipoUsuarioReserva = reserva.solicitante_tipo;
       if (tipoUsuarioReserva === "Estudiante") {
         reservasAlumnos++;
       } else if (tipoUsuarioReserva === "Docente") {
@@ -220,24 +215,6 @@ export default function CrearReserva() {
   };
 
   const getDiaSemana = (fecha) => fecha.getDay();
-
-  async function createUser({
-    nombre,
-    numero_cuenta,
-    correo,
-    tipo_usuario,
-  }) {
-    const { data: newUser, error } = await supabase
-      .from("usuarios")
-      .insert([{ nombre, numero_cuenta, correo: correo || " ", tipo_usuario }])
-      .select();
-
-    if (error || !newUser || newUser.length === 0) {
-      throw new Error("Error al crear usuario");
-    }
-
-    return newUser[0].id;
-  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -346,24 +323,21 @@ export default function CrearReserva() {
         }
       }
 
-      const usuarioId = await createUser({
-        nombre,
-        numero_cuenta: numeroCuenta,
-        correo,
-        tipo_usuario: perfil,
-      });
-
       for (const fecha of diasReservaciones) {
         const { data: reservacionData, error: reservacionError } =
           await supabase
             .from("reservaciones")
             .insert({
               motivo_uso: motivoUso,
-              cantidad_usuarios: cantidadUsuarios + 1,
+              cantidad_personas: cantidadUsuarios + 1,
               fecha: fecha,
               dias_repeticion: diasSeleccionados.join(", "),
               laboratorio_id: laboratorioId,
               grupo_id: grupoId,
+              solicitante_nombre: nombre,
+              solicitante_numero_cuenta: numeroCuenta,
+              solicitante_correo: correo,
+              solicitante_tipo: perfil,
             })
             .select();
 
@@ -390,27 +364,27 @@ export default function CrearReserva() {
 
         await supabase.from("reservaciones_horarios").insert(horariosInsert);
 
-        const usuariosInsert = [
-          { reservacion_id: reservacionId, usuario_id: usuarioId },
+        const personasInsert = [
+          {
+            reservacion_id: reservacionId,
+            nombre,
+            numero_cuenta: numeroCuenta,
+            es_reservador: true,
+          },
         ];
 
         if (cantidadUsuarios > 0) {
           for (const integrante of integrantes) {
-            const integranteId = await createUser({
+            personasInsert.push({
+              reservacion_id: reservacionId,
               nombre: integrante.nombre,
               numero_cuenta: integrante.numero_cuenta,
-              correo: " ",
-              tipo_usuario: "Estudiante",
-            });
-
-            usuariosInsert.push({
-              reservacion_id: reservacionId,
-              usuario_id: integranteId,
+              es_reservador: false,
             });
           }
         }
 
-        await supabase.from("reservaciones_usuarios").insert(usuariosInsert);
+        await supabase.from("reservaciones_integrantes").insert(personasInsert);
       }
 
       setShowPopup(true);

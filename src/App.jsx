@@ -54,7 +54,7 @@ function App() {
             <Route path="calendario" element={<Calendario />} />
             <Route path="incidente" element={<Incidente />} />
             <Route path="uso" element={<PorcentajeUso />} />
-            <Route element={<ProtectedRoute correo={correo} />}>
+            <Route element={<ProtectedRoute />}>
               <Route path="admin" element={<Dashboard />} />
             </Route>
           </Route>

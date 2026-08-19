@@ -67,26 +67,27 @@ export default function MisReservas() {
           .select(`
             id,
             motivo_uso,
-            cantidad_usuarios,
+            cantidad_personas,
             fecha,
             estado,
             laboratorio_id,
             dias_repeticion,
             grupo_id,
             descripcion,
+            solicitante_nombre,
+            solicitante_tipo,
+            solicitante_correo,
             laboratorios:laboratorio_id(nombre),
-            reservaciones_usuarios!inner(
-              usuarios!inner(
-                nombre,
-                tipo_usuario,
-                correo
-              )
+            reservaciones_integrantes(
+              nombre,
+              numero_cuenta,
+              es_reservador
             ),
             reservaciones_horarios(
               horarios:horario_id(horario)
             )
           `)
-          .eq('reservaciones_usuarios.usuarios.correo', correo)
+          .eq('solicitante_correo', correo)
           .order("fecha", { ascending: true });
 
         if (reservasError) throw reservasError;
@@ -104,9 +105,9 @@ export default function MisReservas() {
               estado: reserva.estado,
               descripcionRechazo: reserva.descripcion || "",
               diasRepeticion: reserva.dias_repeticion,
-              usuario: reserva.reservaciones_usuarios[0]?.usuarios?.nombre || "Desconocido",
-              tipoUsuario: reserva.reservaciones_usuarios[0]?.usuarios?.tipo_usuario || "Desconocido",
-              correo: reserva.reservaciones_usuarios[0]?.usuarios?.correo || "Desconocido",
+              usuario: reserva.solicitante_nombre || "Desconocido",
+              tipoUsuario: reserva.solicitante_tipo || "Desconocido",
+              correo: reserva.solicitante_correo || "Desconocido",
               fechas: [],
               esRecurrente: !!reserva.grupo_id
             };
@@ -157,10 +158,10 @@ export default function MisReservas() {
         .join(", ");
       
       const cuerpoCorreo = `Buen día, por este medio se le notifica que la siguiente reserva ha sido cancelada: <br>
-        Laboratorio: ${grupo.laboratorios?.nombre}<br>
+        Laboratorio: ${grupo.laboratorio}<br>
         Fecha: ${fechasFormateadas}<br>
-        Horario: ${grupo.horarios}<br>
-        Motivo: ${grupo.motivo_uso}<br>`;
+        Horario: ${grupo.fechas.flatMap((f) => f.horarios).join(", ")}<br>
+        Motivo: ${grupo.motivo}<br>`;
       
       await enviarCorreo(grupo.correo, "Reserva Cancelada", cuerpoCorreo);
       
@@ -168,8 +169,8 @@ export default function MisReservas() {
       if(grupo.estado === "APROBADA"){
         const destinatarioAC = import.meta.env.VITE_CORREO_AC;
         const destinatarioAC2 = import.meta.env.VITE_CORREO_AC2;
-        const asuntoAC = `Reserva cancelada - ${grupo.laboratorios?.nombre}`;
-        const cuerpoCorreoAC = `Se ha cancelado una reserva para el laboratorio ${grupo.laboratorios?.nombre} por ${grupo.tiposUsuarios} ${grupo.nombresUsuarios}. Fecha: ${fechasFormateadas}, Horario: ${grupo.horarios}.`;
+        const asuntoAC = `Reserva cancelada - ${grupo.laboratorio}`;
+        const cuerpoCorreoAC = `Se ha cancelado una reserva para el laboratorio ${grupo.laboratorio} por ${grupo.tipoUsuario} ${grupo.usuario}. Fecha: ${fechasFormateadas}, Horario: ${grupo.fechas.flatMap((f) => f.horarios).join(", ")}.`;
         
         await enviarCorreo(destinatarioAC, asuntoAC, cuerpoCorreoAC);
         await enviarCorreo(destinatarioAC2, asuntoAC, cuerpoCorreoAC);

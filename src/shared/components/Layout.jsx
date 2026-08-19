@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import PropTypes from "prop-types";
 import logo from "../../assets/UT2.png";
+import { supabase } from "../services/supabaseClient";
 
 const navItems = [
   { to: "/crear-reserva", icon: "➕", label: "Crear Reserva" },
@@ -25,7 +26,8 @@ export default function Layout({ correo, setCorreo }) {
     }
   }, [setCorreo, navigate]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     localStorage.removeItem("email");
     setCorreo("");
     navigate("/inicio");

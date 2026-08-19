@@ -210,14 +210,18 @@ export default function DashboardReservas() {
         `
           id,
           motivo_uso,
-          cantidad_usuarios,
+          cantidad_personas,
           fecha,
           estado,
           laboratorio_id,
           grupo_id,
           descripcion,
+          solicitante_nombre,
+          solicitante_tipo,
+          solicitante_correo,
+          created_at,
           laboratorios(nombre),
-          reservaciones_usuarios(usuario_id, usuarios(correo, nombre, tipo_usuario)),
+          reservaciones_integrantes(nombre, numero_cuenta, es_reservador),
           reservaciones_horarios(horarios(horario))
         `,
       )
@@ -384,23 +388,6 @@ export default function DashboardReservas() {
       }));
   };
 
-  async function obtenerOCrearResponsable(cliente) {
-    // Crea un nuevo usuario sin importar si ya existe, esto se cambiara en el refactor del proyecto
-    const { data: responsableNuevo, error: insercionError } = await cliente
-      .from("usuarios")
-      .insert({
-        nombre: reservaGrupal.responsableNombre.trim(),
-        numero_cuenta: `ADMIN-${Date.now()}`,
-        correo: reservaGrupal.responsableCorreo.trim().toLowerCase(),
-        tipo_usuario: reservaGrupal.tipoResponsable,
-      })
-      .select("id")
-      .single();
-
-    if (insercionError) throw insercionError;
-    return responsableNuevo.id;
-  }
-
   async function crearReservaGrupal(event) {
     event.preventDefault();
     if (guardandoReservaGrupal) return;
@@ -477,17 +464,20 @@ export default function DashboardReservas() {
         );
       }
 
-      const responsableId = await obtenerOCrearResponsable(cliente);
       const grupoId = crypto.randomUUID();
       const reservasParaInsertar = ocurrencias.map((ocurrencia) => ({
         motivo_uso: reservaGrupal.motivo.trim(),
         // La columna es obligatoria en la base actual; la reserva grupal no captura este dato.
-        cantidad_usuarios: 1,
+        cantidad_personas: 1,
         fecha: ocurrencia.fecha,
         dias_repeticion: "Fechas seleccionadas manualmente",
         laboratorio_id: Number(reservaGrupal.laboratorioId),
         grupo_id: grupoId,
         estado: "APROBADA",
+        solicitante_nombre: reservaGrupal.responsableNombre.trim(),
+        solicitante_numero_cuenta: `ADMIN-${Date.now()}`,
+        solicitante_correo: reservaGrupal.responsableCorreo.trim().toLowerCase(),
+        solicitante_tipo: reservaGrupal.tipoResponsable,
       }));
 
       const { data: reservasCreadas, error: reservaError } = await cliente
@@ -522,17 +512,19 @@ export default function DashboardReservas() {
         .insert(horariosParaInsertar);
       if (horariosError) throw horariosError;
 
-      const usuariosParaInsertar = reservacionesCreadas.map(
+      const integrantesParaInsertar = reservacionesCreadas.map(
         (reservacionId) => ({
           reservacion_id: reservacionId,
-          usuario_id: responsableId,
+          nombre: reservaGrupal.responsableNombre.trim(),
+          numero_cuenta: `ADMIN-${Date.now()}`,
+          es_reservador: true,
         }),
       );
 
-      const { error: usuariosError } = await cliente
-        .from("reservaciones_usuarios")
-        .insert(usuariosParaInsertar);
-      if (usuariosError) throw usuariosError;
+      const { error: integrantesError } = await cliente
+        .from("reservaciones_integrantes")
+        .insert(integrantesParaInsertar);
+      if (integrantesError) throw integrantesError;
 
       setReservaGrupalAbierta(false);
       setReservaGrupal(crearFormularioReservaGrupal());
@@ -542,7 +534,7 @@ export default function DashboardReservas() {
     } catch (error) {
       if (reservacionesCreadas.length > 0) {
         await cliente
-          .from("reservaciones_usuarios")
+          .from("reservaciones_integrantes")
           .delete()
           .in("reservacion_id", reservacionesCreadas);
         await cliente
@@ -576,14 +568,10 @@ export default function DashboardReservas() {
       .select(
         `
         id,
+        solicitante_tipo,
         reservaciones_horarios!inner (
           horarios!inner (
             horario
-          )
-        ),
-        reservaciones_usuarios!inner (
-          usuarios!inner (
-            tipo_usuario
           )
         )
       `,
@@ -604,8 +592,7 @@ export default function DashboardReservas() {
     let reservasAdministrativo = 0;
 
     data.forEach((reserva) => {
-      const tipoUsuarioReserva =
-        reserva.reservaciones_usuarios[0]?.usuarios?.tipo_usuario;
+      const tipoUsuarioReserva = reserva.solicitante_tipo;
       if (tipoUsuarioReserva === "Estudiante") {
         reservasAlumnos++;
       } else if (tipoUsuarioReserva === "Docente") {
@@ -798,32 +785,24 @@ export default function DashboardReservas() {
       const groupKey = reserva.grupo_id || reserva.id;
 
       if (!acc[groupKey]) {
-        // Procesar usuarios, usando id para evitar duplicados reales
-        const usuariosInfo = reserva.reservaciones_usuarios || [];
+        // Procesar integrantes, usando numero_cuenta para evitar duplicados reales
+        const integrantesInfo = reserva.reservaciones_integrantes || [];
         acc[groupKey] = {
           ...reserva,
-          usuariosUnicos: usuariosInfo
-            .map((ru) => ({
-              id: ru.usuario_id,
-              nombre: ru.usuarios?.nombre?.trim(),
+          usuariosUnicos: integrantesInfo
+            .map((ri) => ({
+              id: ri.numero_cuenta,
+              nombre: ri.nombre?.trim(),
             }))
             .filter((u) => u.id && u.nombre),
-          correos:
-            usuariosInfo
-              .map((ru) => ru.usuarios?.correo?.trim())
-              .filter(Boolean)
-              .join(", ") || "N/A",
+          correos: reserva.solicitante_correo?.trim() || "N/A",
           horarios:
             (reserva.reservaciones_horarios || [])
               .map((rh) => rh.horarios?.horario)
               .filter(Boolean)
               .sort()
               .join(", ") || "No asignado",
-          tiposUsuarios:
-            usuariosInfo
-              .map((ru) => ru.usuarios?.tipo_usuario)
-              .filter(Boolean)
-              .join(", ") || "N/A",
+          tiposUsuarios: reserva.solicitante_tipo || "N/A",
           descripcion: reserva.descripcion || "",
           fechas: [
             new Date(
@@ -854,26 +833,28 @@ export default function DashboardReservas() {
           acc[groupKey].ids.push(reserva.id);
           acc[groupKey].fechas.sort((a, b) => a - b);
         }
-        // Unir usuarios únicos por id
-        const nuevosUsuarios = (reserva.reservaciones_usuarios || [])
-          .map((ru) => ({
-            id: ru.usuario_id,
-            nombre: ru.usuarios?.nombre?.trim(),
+        // Unir integrantes únicos por numero_cuenta
+        const nuevosIntegrantes = (reserva.reservaciones_integrantes || [])
+          .map((ri) => ({
+            id: ri.numero_cuenta,
+            nombre: ri.nombre?.trim(),
           }))
           .filter((u) => u.id && u.nombre);
         const usuariosMap = new Map(
           acc[groupKey].usuariosUnicos.map((u) => [u.id, u]),
         );
-        nuevosUsuarios.forEach((u) => usuariosMap.set(u.id, u));
+        nuevosIntegrantes.forEach((u) => usuariosMap.set(u.id, u));
         acc[groupKey].usuariosUnicos = Array.from(usuariosMap.values());
-        // Combinar correos únicos
-        const usuariosInfo = reserva.reservaciones_usuarios || [];
-        const nuevosCorreos = usuariosInfo
-          .map((ru) => ru.usuarios?.correo?.trim())
-          .filter(Boolean);
-        const correosExistentes = acc[groupKey].correos.split(", ");
-        const todosCorreos = [...correosExistentes, ...nuevosCorreos];
-        acc[groupKey].correos = [...new Set(todosCorreos)].join(", ");
+        // Combinar correos del solicitante
+        const nuevoCorreo = reserva.solicitante_correo?.trim();
+        if (nuevoCorreo) {
+          const correosExistentes = acc[groupKey].correos
+            .split(", ")
+            .filter(Boolean);
+          acc[groupKey].correos = [
+            ...new Set([...correosExistentes, nuevoCorreo]),
+          ].join(", ");
+        }
         acc[groupKey].descripcion =
           acc[groupKey].descripcion || reserva.descripcion || "";
       }
