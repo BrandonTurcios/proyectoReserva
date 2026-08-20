@@ -5,18 +5,19 @@ import { supabase } from "../../shared/services/supabaseClient";
 import {
   FiMenu,
   FiLayout,
+  FiBook,
   FiCalendar,
   FiBarChart2,
   FiAlertTriangle,
   FiUsers,
-  FiUser,
   FiLogOut,
   FiX,
 } from "react-icons/fi";
 
 const navItems = [
   { to: "/admin", label: "Dashboard", icon: FiLayout, end: true },
-  { to: "/admin/reservas", label: "Reservas", icon: FiCalendar },
+  { to: "/admin/reservas", label: "Reservas", icon: FiBook },
+  { to: "/admin/calendario", label: "Calendario", icon: FiCalendar },
   { to: "/admin/estadisticas", label: "Estadísticas", icon: FiBarChart2 },
   { to: "/admin/incidentes", label: "Incidentes", icon: FiAlertTriangle },
   { to: "/admin/usuarios", label: "Usuarios", icon: FiUsers },
@@ -24,7 +25,7 @@ const navItems = [
 
 export default function AdminLayout() {
   const navigate = useNavigate();
-  const [colapsado, setColapsado] = useState(false);
+  const [colapsado, setColapsado] = useState(true);
   const [menuMovilAbierto, setMenuMovilAbierto] = useState(false);
   const [perfilAbierto, setPerfilAbierto] = useState(false);
   const [perfil, setPerfil] = useState(null);
@@ -54,35 +55,44 @@ export default function AdminLayout() {
     navigate("/inicio");
   };
 
-  const estilosEnlace = ({ isActive }) =>
-    `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+  const claseTexto = (contraido) =>
+    `overflow-hidden whitespace-nowrap transition-[width,opacity] duration-300 ${
+      contraido ? "w-0 opacity-0" : "w-auto opacity-100"
+    }`;
+
+  const estilosEnlace = (isActive) =>
+    `flex items-center gap-3 rounded-lg px-2.5 py-2.5 text-sm font-medium transition-colors ${
       isActive
         ? "bg-white/15 text-white"
         : "text-white/75 hover:bg-white/10 hover:text-white"
-    } ${colapsado ? "justify-center px-0" : ""}`;
+    }`;
 
-  const sidebarContenido = (
+  const sidebarContenido = (contraido) => (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between px-4 py-5">
-        {!colapsado && (
+      <div className="flex items-center justify-between px-3 py-5">
+        <div className="flex min-w-0 items-center gap-3">
+          <img
+            src="/UT2.png"
+            alt="Logo UT2"
+            className="h-10 w-10 shrink-0 rounded-lg object-cover"
+          />
           <div className="min-w-0">
-            <p className="truncate text-lg font-bold text-white">
+            <p
+              className={`truncate text-lg font-bold text-white ${claseTexto(
+                contraido
+              )}`}
+            >
               Panel Admin
             </p>
-            <p className="truncate text-xs text-white/60">
+            <p
+              className={`truncate text-xs text-white/60 ${claseTexto(
+                contraido
+              )}`}
+            >
               Reservas de Laboratorio
             </p>
           </div>
-        )}
-        <button
-          type="button"
-          onClick={() => setColapsado((v) => !v)}
-          className="hidden rounded-lg p-2 text-white/70 transition-colors hover:bg-white/10 hover:text-white md:block"
-          aria-label={colapsado ? "Expandir menú" : "Colapsar menú"}
-          title={colapsado ? "Expandir menú" : "Colapsar menú"}
-        >
-          <FiMenu size={20} />
-        </button>
+        </div>
         <button
           type="button"
           onClick={() => setMenuMovilAbierto(false)}
@@ -99,12 +109,14 @@ export default function AdminLayout() {
             key={item.to}
             to={item.to}
             end={item.end}
-            className={estilosEnlace}
-            title={colapsado ? item.label : undefined}
+            className={({ isActive }) => estilosEnlace(isActive)}
+            title={contraido ? item.label : undefined}
             onClick={() => setMenuMovilAbierto(false)}
           >
             <item.icon size={20} className="shrink-0" />
-            {!colapsado && <span className="truncate">{item.label}</span>}
+            <span className={`truncate ${claseTexto(contraido)}`}>
+              {item.label}
+            </span>
           </NavLink>
         ))}
       </nav>
@@ -113,24 +125,43 @@ export default function AdminLayout() {
         <button
           type="button"
           onClick={() => setPerfilAbierto(true)}
-          className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/75 transition-colors hover:bg-white/10 hover:text-white ${
-            colapsado ? "justify-center px-0" : ""
-          }`}
-          title={colapsado ? "Mi perfil" : undefined}
+          className="flex w-full items-center gap-3 rounded-lg px-1 py-2.5 text-sm font-medium text-white/75 transition-colors hover:bg-white/10 hover:text-white"
+          title={contraido ? perfil?.nombre || perfil?.email || "Mi perfil" : undefined}
         >
-          <FiUser size={20} className="shrink-0" />
-          {!colapsado && <span className="truncate">Mi perfil</span>}
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15 text-sm font-semibold text-white">
+            {perfil?.nombre
+              ? perfil.nombre
+                  .split(" ")
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .map((p) => p[0])
+                  .join("")
+                  .toUpperCase()
+              : (perfil?.email || "U").slice(0, 2).toUpperCase()}
+          </span>
+          <span
+            className={`flex min-w-0 flex-col items-start text-left ${
+              contraido ? "w-0 overflow-hidden" : ""
+            }`}
+          >
+            <span className={`truncate text-sm font-medium text-white ${claseTexto(contraido)}`}>
+              {perfil?.nombre || "Mi perfil"}
+            </span>
+            <span className={`truncate text-xs text-white/60 ${claseTexto(contraido)}`}>
+              {perfil?.correo || perfil?.email || ""}
+            </span>
+          </span>
         </button>
         <button
           type="button"
           onClick={cerrarSesion}
-          className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-300 transition-colors hover:bg-red-500/20 hover:text-red-100 ${
-            colapsado ? "justify-center px-0" : ""
-          }`}
-          title={colapsado ? "Cerrar sesión" : undefined}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-300 transition-colors hover:bg-red-500/20 hover:text-red-100"
+          title={contraido ? "Cerrar sesión" : undefined}
         >
           <FiLogOut size={20} className="shrink-0" />
-          {!colapsado && <span className="truncate">Cerrar sesión</span>}
+          <span className={`truncate ${claseTexto(contraido)}`}>
+            Cerrar sesión
+          </span>
         </button>
       </div>
     </div>
@@ -138,13 +169,18 @@ export default function AdminLayout() {
 
   return (
     <div className="flex min-h-screen bg-gray-100">
-      {/* Sidebar escritorio */}
+      {/* Espaciador que reserva el ancho del sidebar contraído (no cubre contenido) */}
+      <div className="hidden w-16 shrink-0 md:block" />
+
+      {/* Sidebar escritorio (overlay que se expande al hover) */}
       <aside
-        className={`sticky top-0 hidden h-screen shrink-0 self-start overflow-y-auto bg-[#06065c] transition-all duration-300 md:block ${
+        onMouseEnter={() => setColapsado(false)}
+        onMouseLeave={() => setColapsado(true)}
+        className={`fixed inset-y-0 left-0 z-40 hidden overflow-y-auto bg-[#06065c] transition-all duration-300 md:block ${
           colapsado ? "w-16" : "w-64"
         }`}
       >
-        {sidebarContenido}
+        {sidebarContenido(colapsado)}
       </aside>
 
       {/* Drawer móvil */}
@@ -165,7 +201,7 @@ export default function AdminLayout() {
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
               className="fixed inset-y-0 left-0 z-50 w-64 bg-[#06065c] md:hidden"
             >
-              {sidebarContenido}
+              {sidebarContenido(false)}
             </motion.aside>
           </>
         )}
