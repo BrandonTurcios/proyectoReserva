@@ -1,13 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
-import React, { useEffect, useState, useMemo } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Select from "react-select";
 import { supabase } from "../../shared/services/supabaseClient";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
-import GraficaReservas from "../components/GraficaReservas";
-import PorcentajeUso from "../components/PorcentajeUso";
-import IncidentesTabla from "../components/IncidentesTabla";
 import * as XLSX from "xlsx";
 import { DatePicker, message } from "antd";
 import dayjs from "dayjs";
@@ -109,7 +106,7 @@ function formatearFechaCorta(fecha) {
   ).padStart(2, "0")}/${String(fechaParseada.getFullYear()).slice(-2)}`;
 }
 
-export default function DashboardReservas() {
+export default function ReservasAdmin() {
   const [reservasAgrupadas, setReservasAgrupadas] = useState([]);
   const [estadoFiltro, setEstadoFiltro] = useState("EN_ESPERA");
   const [tipoUsuarioFiltro, setTipoUsuarioFiltro] = useState("TODOS");
@@ -132,9 +129,6 @@ export default function DashboardReservas() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const [showStats, setShowStats] = useState(false);
-  const [showStatsGr, setShowStatsGr] = useState(false);
-  const [showStatsIn, setShowStatsIn] = useState(false);
   const [rechazoModalOpen, setRechazoModalOpen] = useState(false);
   const [grupoARechazar, setGrupoARechazar] = useState(null);
   const [descripcionRechazo, setDescripcionRechazo] = useState("");
@@ -174,34 +168,6 @@ export default function DashboardReservas() {
     }
     cerrarModalRechazo();
   };
-
-  // Memoizamos el componente para preservar su estado
-  const memoizedStats = useMemo(
-    () => (
-      <div className="mb-8 p-4 md:p-6 bg-white rounded-lg shadow-md">
-        <PorcentajeUso />
-      </div>
-    ),
-    [],
-  );
-
-  const memoizedStatsGr = useMemo(
-    () => (
-      <div className="mb-8 p-4 md:p-6 bg-white rounded-lg shadow-md">
-        <GraficaReservas />
-      </div>
-    ),
-    [],
-  );
-
-  const memoizedStatsIn = useMemo(
-    () => (
-      <div className="mb-8 p-4 md:p-6 bg-white rounded-lg shadow-md">
-        <IncidentesTabla />
-      </div>
-    ),
-    [],
-  );
 
   async function obtenerReservas() {
     const { data, error } = await supabase
@@ -467,7 +433,6 @@ export default function DashboardReservas() {
       const grupoId = crypto.randomUUID();
       const reservasParaInsertar = ocurrencias.map((ocurrencia) => ({
         motivo_uso: reservaGrupal.motivo.trim(),
-        // La columna es obligatoria en la base actual; la reserva grupal no captura este dato.
         cantidad_personas: 1,
         fecha: ocurrencia.fecha,
         dias_repeticion: "Fechas seleccionadas manualmente",
@@ -562,7 +527,6 @@ export default function DashboardReservas() {
     horario,
     tipoUsuario,
   ) {
-    // Obtener todas las reservas aprobadas para el laboratorio, fecha y horario específicos
     const { data, error } = await supabase
       .from("reservaciones")
       .select(
@@ -586,7 +550,6 @@ export default function DashboardReservas() {
       return { limiteExcedido: false, mensaje: "" };
     }
 
-    // Contar reservas de alumnos y docentes/administrativos
     let reservasAlumnos = 0;
     let reservasDocentes = 0;
     let reservasAdministrativo = 0;
@@ -602,7 +565,6 @@ export default function DashboardReservas() {
       }
     });
 
-    // Lógica de exclusividad y límites
     if (tipoUsuario === "Estudiante") {
       if (reservasDocentes > 0 || reservasAdministrativo > 0) {
         return {
@@ -618,7 +580,6 @@ export default function DashboardReservas() {
             "Ya hay 20 reservas de alumnos aprobadas para este horario y laboratorio.",
         };
       }
-      // Si no hay docente/administrativo y hay menos de 20 alumnos, permitir
       return { limiteExcedido: false, mensaje: "" };
     } else if (tipoUsuario === "Docente" || tipoUsuario === "Administrativo") {
       if (
@@ -632,11 +593,9 @@ export default function DashboardReservas() {
             "No puedes reservar porque ya hay una reserva de estudiante, docente o administrativo para este horario y laboratorio.",
         };
       }
-      // Si no hay ninguno, permitir
       return { limiteExcedido: false, mensaje: "" };
     }
 
-    // Por defecto, permitir
     return { limiteExcedido: false, mensaje: "" };
   }
 
@@ -657,7 +616,7 @@ export default function DashboardReservas() {
       if (response.ok) {
         console.log("Correo enviado correctamente a:", destinatario);
       } else {
-        const errorData = await response.json(); // Lee la respuesta del servidor
+        const errorData = await response.json();
         console.error("Error al enviar el correo a:", destinatario, errorData);
       }
     } catch (error) {
@@ -675,9 +634,8 @@ export default function DashboardReservas() {
       const laboratorioId = grupo.laboratorio_id;
       const fecha = grupo.fechas[0].toISOString().split("T")[0];
       const horario = grupo.horarios.split(", ")[0];
-      const tipoUsuario = grupo.tiposUsuarios; // Tipo de usuario de la reserva
+      const tipoUsuario = grupo.tiposUsuarios;
 
-      // Verificar si se excede el límite de reservas aprobadas
       const { limiteExcedido, mensaje } = await verificarLimiteReservas(
         laboratorioId,
         fecha,
@@ -691,11 +649,10 @@ export default function DashboardReservas() {
         );
 
         if (!confirmacion) {
-          return; // No se aprueba la reserva
+          return;
         }
       }
 
-      // Continuar con la aprobación de la reserva
       const fechasFormateadas = grupo.fechas
         .map((fecha) => {
           return new Date(fecha).toLocaleDateString("es-ES", {
@@ -706,7 +663,6 @@ export default function DashboardReservas() {
         })
         .join(", ");
 
-      // Enviar correo electrónico al usuario que hizo la reserva
       const destinatario = grupo.correos.split(", ")[0];
       const cuerpoCorreo = `Buen día, por este medio se le notifica que la siguiente reserva ha sido aprobada: <br>
         Laboratorio: ${grupo.laboratorios?.nombre}<br>
@@ -716,7 +672,6 @@ export default function DashboardReservas() {
 
       await enviarCorreo(destinatario, "Reserva Aprobada", cuerpoCorreo);
 
-      // Enviar correo electrónico al correo estático (AIRE AC)
       const destinatarioAC = import.meta.env.VITE_CORREO_AC;
       const destinatarioAC2 = import.meta.env.VITE_CORREO_AC2;
       const cuerpoCorreoAC = `Se ha aprobado una nueva solicitud de reserva para el laboratorio de ${grupo.laboratorios?.nombre} por el ${grupo.tiposUsuarios}
@@ -736,7 +691,6 @@ export default function DashboardReservas() {
           });
         })
         .join(", ");
-      // Enviar correo electrónico al usuario que hizo la reserva
       const destinatario = grupo.correos.split(", ")[0];
       const cuerpoCorreo = `Buen día, por este medio se le notifica que la siguiente reserva ha sido rechazada: <br>
         Laboratorio: ${grupo.laboratorios?.nombre}<br>
@@ -747,7 +701,6 @@ export default function DashboardReservas() {
       await enviarCorreo(destinatario, "Reserva Rechazada", cuerpoCorreo);
     }
 
-    // Actualizar el estado de la reserva en la base de datos
     const supabaseAdmin = createClient(
       import.meta.env.VITE_SUPABASE_URL,
       import.meta.env.VITE_SERVICE_ROLE,
@@ -781,11 +734,9 @@ export default function DashboardReservas() {
 
   function agruparReservas(reservas) {
     const agrupadas = reservas.reduce((acc, reserva) => {
-      // Usar grupo_id como clave primaria de agrupación, o id si no existe grupo_id
       const groupKey = reserva.grupo_id || reserva.id;
 
       if (!acc[groupKey]) {
-        // Procesar integrantes, usando numero_cuenta para evitar duplicados reales
         const integrantesInfo = reserva.reservaciones_integrantes || [];
         acc[groupKey] = {
           ...reserva,
@@ -818,7 +769,6 @@ export default function DashboardReservas() {
           laboratorios: reserva.laboratorios || { nombre: "N/A" },
         };
       } else {
-        // Solo agregar si es una fecha nueva
         const fechaReserva = new Date(reserva.fecha);
         const fechaAjustada = new Date(
           fechaReserva.getTime() + fechaReserva.getTimezoneOffset() * 60000,
@@ -833,7 +783,6 @@ export default function DashboardReservas() {
           acc[groupKey].ids.push(reserva.id);
           acc[groupKey].fechas.sort((a, b) => a - b);
         }
-        // Unir integrantes únicos por numero_cuenta
         const nuevosIntegrantes = (reserva.reservaciones_integrantes || [])
           .map((ri) => ({
             id: ri.numero_cuenta,
@@ -845,7 +794,6 @@ export default function DashboardReservas() {
         );
         nuevosIntegrantes.forEach((u) => usuariosMap.set(u.id, u));
         acc[groupKey].usuariosUnicos = Array.from(usuariosMap.values());
-        // Combinar correos del solicitante
         const nuevoCorreo = reserva.solicitante_correo?.trim();
         if (nuevoCorreo) {
           const correosExistentes = acc[groupKey].correos
@@ -861,7 +809,6 @@ export default function DashboardReservas() {
       return acc;
     }, {});
 
-    // Ordenar por fecha más reciente
     const resultado = Object.values(agrupadas)
       .map((grupo) => ({
         ...grupo,
@@ -871,6 +818,7 @@ export default function DashboardReservas() {
 
     setReservasAgrupadas(resultado);
   }
+
   const toggleReserva = (grupo) => {
     if (reservaExpandida === grupo) {
       setReservaExpandida(null);
@@ -886,7 +834,6 @@ export default function DashboardReservas() {
   };
 
   const exportarAExcel = () => {
-    // Usar todas las reservas sin filtrar
     const datosExcel = reservasAgrupadas.map((grupo) => ({
       Nombre: grupo.nombresUsuarios,
       "Tipo de Usuario": grupo.tiposUsuarios,
@@ -907,28 +854,24 @@ export default function DashboardReservas() {
         .join(", "),
     }));
 
-    // Crear un nuevo libro de Excel
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(datosExcel);
 
-    // Ajustar el ancho de las columnas
     const wscols = [
-      { wch: 30 }, // Nombre
-      { wch: 15 }, // Tipo de Usuario
-      { wch: 20 }, // Laboratorio
-      { wch: 40 }, // Motivo
-      { wch: 12 }, // Creada en
-      { wch: 30 }, // Correos
-      { wch: 20 }, // Horarios
-      { wch: 15 }, // Estado
-      { wch: 40 }, // Fechas
+      { wch: 30 },
+      { wch: 15 },
+      { wch: 20 },
+      { wch: 40 },
+      { wch: 12 },
+      { wch: 30 },
+      { wch: 20 },
+      { wch: 15 },
+      { wch: 40 },
     ];
     ws["!cols"] = wscols;
 
-    // Agregar la hoja al libro
     XLSX.utils.book_append_sheet(wb, ws, "Reservas");
 
-    // Generar el archivo Excel
     const fechaActual = new Date().toISOString().split("T")[0];
     XLSX.writeFile(wb, `Reservas_${fechaActual}.xlsx`);
   };
@@ -950,68 +893,23 @@ export default function DashboardReservas() {
   );
 
   return (
-    <div className="px-2 py-4 md:p-6 bg-gray-100 min-h-screen">
-      <h1 className="text-xl md:text-4xl font-bold mb-4 md:mb-6 text-center text-gray-800">
-        Dashboard de Reservas
+    <div className="py-4">
+      <h1 className="mb-6 text-2xl font-bold text-gray-800">
+        Gestión de Reservas
       </h1>
 
       <div className="mb-6 flex justify-center">
         <button
           type="button"
           onClick={abrirReservaGrupal}
-          className="inline-flex items-center gap-2 rounded-lg bg-[#0f49b6] px-4 py-2 md:px-6 md:py-3 text-base md:text-lg font-semibold text-white shadow-md transition-colors hover:bg-[#06065c]"
+          className="inline-flex items-center gap-2 rounded-lg bg-[#0f49b6] px-4 py-2 text-base font-semibold text-white shadow-md transition-colors hover:bg-[#06065c] md:px-6 md:py-3"
         >
           <FiPlus size={20} />
           Nueva reserva grupal
         </button>
       </div>
 
-      {/* Contenedor de botones modificado */}
-      <div className="flex flex-col items-center gap-4 p-4">
-        {/* Botón 1 - Gráfica de Reservas */}
-        <div className="w-full text-center">
-          <button
-            onClick={() => setShowStatsGr(!showStatsGr)}
-            className="w-full mb-2 px-4 py-2.5 md:px-6 md:py-3 bg-cyan-600 text-white rounded-lg hover:bg-[#4D4DFF] transition-colors text-base md:text-lg"
-          >
-            {showStatsGr
-              ? "Ocultar Gráfica de Reservas Aprobadas"
-              : "Mostrar Gráfica de Reservas Aprobadas"}
-          </button>
-          {showStatsGr && <div className="w-full">{memoizedStatsGr}</div>}
-        </div>
-
-        {/* Botón 2 - Estadísticas */}
-        <div className="w-full text-center">
-          <button
-            onClick={() => setShowStats(!showStats)}
-            className="w-full mb-2 px-4 py-2.5 md:px-6 md:py-3 bg-[#4B9CD3] text-white rounded-lg hover:bg-[#4D4DFF] transition-colors text-base md:text-lg"
-          >
-            {showStats
-              ? "Ocultar Porcentajes de Uso"
-              : "Mostrar Porcentajes de Uso"}
-          </button>
-          {showStats && <div className="w-full">{memoizedStats}</div>}
-        </div>
-
-        {/* Botón 3 - Incidentes */}
-        <div className="w-full text-center">
-          <button
-            onClick={() => setShowStatsIn(!showStatsIn)}
-            className="w-full mb-2 px-4 py-2.5 md:px-6 md:py-3 bg-blue-600 text-white rounded-lg hover:bg-[#4D4DFF] transition-colors text-base md:text-lg"
-          >
-            {showStatsIn ? "Ocultar Incidentes" : "Mostrar Incidentes"}
-          </button>
-          {showStatsIn && <div className="w-full">{memoizedStatsIn}</div>}
-        </div>
-      </div>
-
-      {/* Sección de filtros y tabla */}
-      <div className="p-3 md:p-6 bg-white rounded-lg shadow-md">
-        <h2 className="text-xl font-semibold mb-4 text-gray-700">
-          Gestión de Reservas
-        </h2>
-
+      <div className="rounded-lg bg-white p-3 shadow-md md:p-6">
         {/* Filtros */}
         <div className="mb-4 flex flex-wrap justify-center gap-3">
           <div>
@@ -1026,6 +924,7 @@ export default function DashboardReservas() {
               }}
               className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
+              <option value="TODOS">Todos</option>
               <option value="EN_ESPERA">En Espera</option>
               <option value="APROBADA">Aprobada</option>
               <option value="RECHAZADA">Rechazada</option>
@@ -1141,7 +1040,7 @@ export default function DashboardReservas() {
             </thead>
             <tbody>
               {paginatedReservas.map((grupo) => (
-                <React.Fragment key={grupo.ids.join("-")}>
+                <Fragment key={grupo.ids.join("-")}>
                   <tr
                     className="border-t hover:bg-gray-200 transition-colors cursor-pointer text-xs md:text-sm"
                     onClick={() => toggleReserva(grupo)}
@@ -1271,7 +1170,7 @@ export default function DashboardReservas() {
                       </td>
                     </tr>
                   )}
-                </React.Fragment>
+                </Fragment>
               ))}
               {paginatedReservas.length === 0 && (
                 <tr>

@@ -24,7 +24,7 @@ const PorcentajeUso = memo(function PorcentajeUso() {
 
   // Obtener los trimestres desde Supabase
   async function obtenerTrimestres() {
-    const { data, error } = await supabase.from("fechas_Q").select("*");
+    const { data, error } = await supabase.from("fechas_q").select("*");
     if (error) {
       console.error("Error al obtener trimestres:", error);
       return;
@@ -44,7 +44,7 @@ const PorcentajeUso = memo(function PorcentajeUso() {
     }));
   }
 
-  // Guardar un trimestre en la tabla fechas_Q
+  // Guardar un trimestre en la tabla fechas_q
   async function guardarTrimestre(trimestreKey, inicio, final) {
     if (!inicio || !final) {
       console.error(
@@ -54,7 +54,7 @@ const PorcentajeUso = memo(function PorcentajeUso() {
     }
 
     const { error } = await supabase
-      .from("fechas_Q")
+      .from("fechas_q")
       .upsert([{ id: trimestreKey, inicio, final }], { onConflict: "id" });
 
     if (error) {

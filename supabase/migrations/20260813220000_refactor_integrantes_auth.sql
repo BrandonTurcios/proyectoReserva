@@ -39,8 +39,8 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.perfiles (id, nombre, rol)
-  values (new.id, coalesce(new.raw_user_meta_data->>'nombre', new.email), 'usuario')
+  insert into public.perfiles (id, nombre, rol, correo)
+  values (new.id, coalesce(new.raw_user_meta_data->>'nombre', new.email), coalesce(new.raw_user_meta_data->>'rol', 'colaborador'), new.email)
   on conflict (id) do nothing;
   return new;
 end;

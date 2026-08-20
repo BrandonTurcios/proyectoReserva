@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Suspense, lazy } from "react";
 import Layout from "./shared/components/Layout";
 import ProtectedRoute from "./shared/auth/ProtectedRoute";
+import AdminLayout from "./admin/layout/AdminLayout";
 import "./index.css";
 
 const CrearReserva = lazy(() => import("./usuarios/pages/CrearReserva"));
@@ -11,8 +12,12 @@ const Calendario = lazy(() => import("./usuarios/pages/Calendario"));
 const Incidente = lazy(() => import("./usuarios/pages/Incidente"));
 const Home = lazy(() => import("./usuarios/pages/Home"));
 const Inicio = lazy(() => import("./shared/auth/Inicio"));
-const Dashboard = lazy(() => import("./admin/pages/DashboardReservas"));
-const PorcentajeUso = lazy(() => import("./admin/components/PorcentajeUso"));
+const DashboardAdmin = lazy(() => import("./admin/pages/DashboardAdmin"));
+const ReservasAdmin = lazy(() => import("./admin/pages/ReservasAdmin"));
+const EstadisticasAdmin = lazy(() => import("./admin/pages/EstadisticasAdmin"));
+const CalendarioAdmin = lazy(() => import("./admin/pages/CalendarioAdmin"));
+const IncidentesAdmin = lazy(() => import("./admin/pages/IncidentesAdmin"));
+const UsuariosAdmin = lazy(() => import("./admin/pages/UsuariosAdmin"));
 function LoadingScreen() {
   return (
     <div className="flex items-center justify-center h-screen bg-[#06065c]">
@@ -53,9 +58,15 @@ function App() {
             <Route path="mis-reservas" element={<MisReservas />} />
             <Route path="calendario" element={<Calendario />} />
             <Route path="incidente" element={<Incidente />} />
-            <Route path="uso" element={<PorcentajeUso />} />
-            <Route element={<ProtectedRoute />}>
-              <Route path="admin" element={<Dashboard />} />
+          </Route>
+          <Route element={<ProtectedRoute />}>
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<DashboardAdmin />} />
+              <Route path="reservas" element={<ReservasAdmin />} />
+              <Route path="estadisticas" element={<EstadisticasAdmin />} />
+              <Route path="calendario" element={<CalendarioAdmin />} />
+              <Route path="incidentes" element={<IncidentesAdmin />} />
+              <Route path="usuarios" element={<UsuariosAdmin />} />
             </Route>
           </Route>
         </Routes>
