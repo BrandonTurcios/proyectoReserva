@@ -52,7 +52,7 @@ export default function AdminLayout() {
   const cerrarSesion = async () => {
     await supabase.auth.signOut();
     localStorage.removeItem("email");
-    navigate("/inicio");
+    navigate("/login");
   };
 
   const claseTexto = (contraido) =>

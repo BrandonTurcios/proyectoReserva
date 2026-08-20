@@ -206,7 +206,7 @@ export default function UsuariosAdmin() {
           className="inline-flex items-center gap-2 rounded-lg bg-[#0f49b6] px-4 py-2 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#06065c]"
         >
           <FiPlus size={18} />
-          Crear usuario
+          Agregar colaborador
         </button>
       </div>
 

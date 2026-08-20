@@ -12,6 +12,7 @@ const Calendario = lazy(() => import("./usuarios/pages/Calendario"));
 const Incidente = lazy(() => import("./usuarios/pages/Incidente"));
 const Home = lazy(() => import("./usuarios/pages/Home"));
 const Inicio = lazy(() => import("./shared/auth/Inicio"));
+const Login = lazy(() => import("./shared/auth/Login"));
 const DashboardAdmin = lazy(() => import("./admin/pages/DashboardAdmin"));
 const ReservasAdmin = lazy(() => import("./admin/pages/ReservasAdmin"));
 const EstadisticasAdmin = lazy(() => import("./admin/pages/EstadisticasAdmin"));
@@ -52,6 +53,7 @@ function App() {
       <Suspense fallback={<LoadingScreen />}>
         <Routes>
           <Route path="/inicio" element={<Inicio setCorreo={setCorreo} />} />
+          <Route path="/login" element={<Login setCorreo={setCorreo} />} />
           <Route path="/" element={<Layout correo={correo} setCorreo={setCorreo} />}>
             <Route index element={<Home />} />
             <Route path="crear-reserva" element={<CrearReserva />} />
